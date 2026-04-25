@@ -4,7 +4,7 @@ Sources:
   1. NHL Stats API — игровая статистика + биография (официальный API)
   2. Spotrac       — зарплаты / cap hit (Selenium)
 
-Сезоны: 2020-21 → 2025-26
+Сезоны: 2021-22 → 2025-26
 Выход: data/nhl_skaters_YEAR.csv, data/nhl_goalies_YEAR.csv
        data/nhl_skaters_raw.csv, data/nhl_goalies_raw.csv (финальные)
 """
@@ -26,12 +26,9 @@ from selenium.webdriver.support import expected_conditions as EC
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ─── Настройки ────────────────────────────────────────────────────────────────
-
-SEASONS      = ["20212022", "20222023", "20232024", "20242025", "20252026"]
-SEASON_YEARS = [ 2022,       2023,       2024,       2025,       2026]
-
-OUTPUT_DIR = Path("data")
+SEASONS = ["20212022", "20222023", "20232024", "20242025", "20252026"]
+SEASON_YEARS = [2022, 2023, 2024, 2025, 2026]
+OUTPUT_DIR = Path("../data")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 HEADERS = {
@@ -43,9 +40,8 @@ HEADERS = {
 }
 
 NHL_LEGACY = "https://api.nhle.com/stats/rest/en"
-NHL_WEB    = "https://api-web.nhle.com"
+NHL_WEB = "https://api-web.nhle.com"
 
-# ─── Selenium драйвер ─────────────────────────────────────────────────────────
 
 def make_driver() -> webdriver.Edge:
     opts = EdgeOptions()
@@ -60,7 +56,7 @@ def make_driver() -> webdriver.Edge:
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     driver = webdriver.Edge(
-        service=EdgeService(r"C:\Users\Ксения\PycharmProjects\ML_hockey\msedgedriver.exe"),
+        service=EdgeService(r"/msedgedriver.exe"),
         options=opts,
     )
     driver.set_page_load_timeout(180)
@@ -79,7 +75,6 @@ def restart_driver(driver: webdriver.Edge) -> webdriver.Edge:
     time.sleep(3)
     return make_driver()
 
-# ─── 1. NHL Stats API ─────────────────────────────────────────────────────────
 
 def _nhl_get(endpoint: str, season: str, sort: str, retries: int = 5) -> pd.DataFrame:
     url = f"{NHL_LEGACY}/{endpoint}"
@@ -105,7 +100,6 @@ def _nhl_get(endpoint: str, season: str, sort: str, retries: int = 5) -> pd.Data
             return pd.DataFrame()
     return pd.DataFrame()
 
-# ─── 2. v1 API (рост, вес, драфт) ────────────────────────────────────────────
 
 def fetch_player_bio_v1(player_id: int, retries: int = 3) -> dict:
     url = f"{NHL_WEB}/v1/player/{player_id}/landing"
@@ -116,14 +110,14 @@ def fetch_player_bio_v1(player_id: int, retries: int = 3) -> dict:
             d = r.json()
             draft = d.get("draftDetails") or {}
             return {
-                "playerId":       player_id,
+                "playerId": player_id,
                 "heightInInches": d.get("heightInInches"),
                 "weightInPounds": d.get("weightInPounds"),
-                "birthCity":      (d.get("birthCity") or {}).get("default", ""),
-                "birthCountry":   d.get("birthCountry", ""),
-                "draftYear":      draft.get("year"),
-                "draftRound":     draft.get("round"),
-                "draftOverall":   draft.get("pickInRound"),
+                "birthCity": (d.get("birthCity") or {}).get("default", ""),
+                "birthCountry": d.get("birthCountry", ""),
+                "draftYear": draft.get("year"),
+                "draftRound": draft.get("round"),
+                "draftOverall": draft.get("pickInRound"),
             }
         except Exception as e:
             log.warning(f"  v1/player/{player_id}: попытка {attempt} — {e}")
@@ -156,7 +150,6 @@ def enrich_from_cache(df: pd.DataFrame, v1_cache: pd.DataFrame) -> pd.DataFrame:
         log.info(f"  v1 cache: добавлены колонки {extra_cols}")
     return df
 
-# ─── 3. Статистика по сезону ──────────────────────────────────────────────────
 
 def build_nhl_skaters(season: str) -> pd.DataFrame:
     log.info(f"NHL API → скейтеры {season}")
@@ -166,11 +159,11 @@ def build_nhl_skaters(season: str) -> pd.DataFrame:
 
     merge_key = ["playerId", "season"]
     endpoints = [
-        ("skater/realtime",           "hits"),
+        ("skater/realtime", "hits"),
         ("skater/faceoffpercentages", "totalFaceoffs"),
-        ("skater/powerplay",          "ppPoints"),
-        ("skater/penaltyShots",       "goals"),
-        ("skater/shootout",           "wins"),
+        ("skater/powerplay", "ppPoints"),
+        ("skater/penaltyShots", "goals"),
+        ("skater/shootout", "wins"),
     ]
 
     for endpoint, sort in endpoints:
@@ -214,10 +207,9 @@ def build_nhl_goalies(season: str) -> pd.DataFrame:
 
     return base
 
-# ─── 4. Spotrac ───────────────────────────────────────────────────────────────
 
 def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
-    log.info(f"Spotrac → зарплаты {year-1}-{str(year)[-2:]}")
+    log.info(f"Spotrac → зарплаты {year - 1}-{str(year)[-2:]}")
     url = f"https://www.spotrac.com/nhl/rankings/player/_/year/{year}/sort/cap_total"
     try:
         try:
@@ -252,7 +244,7 @@ def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
                 parts = small.get_text(" ", strip=True).split(",")
                 if len(parts) >= 2:
                     team = parts[0].strip()
-                    pos  = parts[1].strip()
+                    pos = parts[1].strip()
 
             salary_tag = item.select_one("span.medium")
             cap_hit = None
@@ -265,10 +257,10 @@ def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
 
             rows.append({
                 "player_name_cw": name,
-                "team_cw":        team,
-                "position_cw":    pos,
-                "cap_hit":        cap_hit,
-                "season_year":    year,
+                "team_cw": team,
+                "position_cw": pos,
+                "cap_hit": cap_hit,
+                "season_year": year,
             })
 
         df = pd.DataFrame(rows)
@@ -279,12 +271,12 @@ def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
         log.error(f"  Spotrac ошибка: {e}")
         return pd.DataFrame()
 
-# ─── 5. Нормализация имён ─────────────────────────────────────────────────────
 
 _TRANSLIT = str.maketrans(
     "áéíóúäöüčšžřýěňÁÉÍÓÚÄÖÜČŠŽŘÝĚŇ",
     "aeiouaoucsrzyenAEIOUAOUCSRZYEN",
 )
+
 
 def normalize_name(name: str) -> str:
     if not isinstance(name, str):
@@ -295,7 +287,6 @@ def normalize_name(name: str) -> str:
     n = re.sub(r"[^a-z\s]", "", n)
     return n.strip()
 
-# ─── 6. Главный пайплайн ──────────────────────────────────────────────────────
 
 def build_dataset():
     driver = make_driver()
@@ -319,9 +310,9 @@ def build_dataset():
 
     try:
         for season, year in zip(SEASONS, SEASON_YEARS):
-            log.info(f"\n{'='*60}")
-            log.info(f"  СЕЗОН {season}  ({year-1}-{str(year)[-2:]})")
-            log.info(f"{'='*60}")
+            log.info(f"\n{'=' * 60}")
+            log.info(f"  СЕЗОН {season}  ({year - 1}-{str(year)[-2:]})")
+            log.info(f"{'=' * 60}")
 
             path_sk = OUTPUT_DIR / f"nhl_skaters_{year}.csv"
             path_go = OUTPUT_DIR / f"nhl_goalies_{year}.csv"
@@ -329,7 +320,6 @@ def build_dataset():
                 log.info(f"  Сезон {year} уже сохранён, пропускаем")
                 continue
 
-            # ── NHL API: скейтеры ────────────────────────────────
             try:
                 sk = build_nhl_skaters(season)
                 sk["season_year"] = year
@@ -337,7 +327,6 @@ def build_dataset():
                 log.error(f"NHL skaters: {e}")
                 sk = pd.DataFrame()
 
-            # ── NHL API: вратари ─────────────────────────────────
             try:
                 go = build_nhl_goalies(season)
                 go["season_year"] = year
@@ -347,7 +336,6 @@ def build_dataset():
 
             time.sleep(1.5)
 
-            # ── Spotrac ──────────────────────────────────────────
             try:
                 sal = fetch_spotrac_salaries(driver, year)
             except Exception as e:
@@ -359,7 +347,6 @@ def build_dataset():
                     sal = pd.DataFrame()
             time.sleep(2.0)
 
-            # ── Джоин скейтеров ──────────────────────────────────
             if not sk.empty:
                 name_col = next(
                     (c for c in ["skaterFullName", "playerName"] if c in sk.columns), None
@@ -381,9 +368,8 @@ def build_dataset():
 
                 sk.dropna(axis=1, how="all", inplace=True)
                 sk.to_csv(path_sk, index=False, encoding="utf-8-sig")
-                log.info(f"  ✓ Скейтеры сохранены: {path_sk} ({sk.shape})")
+                log.info(f"  Скейтеры сохранены: {path_sk} ({sk.shape})")
 
-            # ── Джоин вратарей ────────────────────────────────────
             if not go.empty:
                 name_col_g = next(
                     (c for c in ["goalieFullName", "playerName"] if c in go.columns), None
@@ -405,7 +391,7 @@ def build_dataset():
 
                 go.dropna(axis=1, how="all", inplace=True)
                 go.to_csv(path_go, index=False, encoding="utf-8-sig")
-                log.info(f"  ✓ Вратари сохранены: {path_go} ({go.shape})")
+                log.info(f"  Вратари сохранены: {path_go} ({go.shape})")
 
             log.info(f"Сезон {season} готов. Пауза 3 сек...\n")
             time.sleep(3.0)
@@ -426,16 +412,16 @@ def _merge_all_seasons():
         df_sk.dropna(axis=1, how="all", inplace=True)
         path = OUTPUT_DIR / "nhl_skaters_raw.csv"
         df_sk.to_csv(path, index=False, encoding="utf-8-sig")
-        log.info(f"\n✓ Итого скейтеры: {df_sk.shape[0]} строк × {df_sk.shape[1]} колонок → {path}")
+        log.info(f"\nИтого скейтеры: {df_sk.shape[0]} строк × {df_sk.shape[1]} колонок → {path}")
 
     if go_files:
         df_go = pd.concat([pd.read_csv(f) for f in go_files], ignore_index=True)
         df_go.dropna(axis=1, how="all", inplace=True)
         path = OUTPUT_DIR / "nhl_goalies_raw.csv"
         df_go.to_csv(path, index=False, encoding="utf-8-sig")
-        log.info(f"✓ Итого вратари: {df_go.shape[0]} строк × {df_go.shape[1]} колонок → {path}")
+        log.info(f"Итого вратари: {df_go.shape[0]} строк × {df_go.shape[1]} колонок → {path}")
 
-    log.info("\n✅ Парсинг завершён.")
+    log.info("\nПарсинг завершён.")
 
 
 if __name__ == "__main__":
