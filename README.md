@@ -155,7 +155,7 @@ python src/modeling.py
 - [x] Чистая структура проекта
 - [x] `requirements.txt` с версиями
 - [x] `random_state = 42` везде
-- [ ] Линтер (ruff) 
+- [x] Линтер (ruff) 
 
 ## Отчёт
 

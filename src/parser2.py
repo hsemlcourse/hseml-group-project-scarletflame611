@@ -9,19 +9,20 @@ Sources:
        data/nhl_skaters_raw.csv, data/nhl_goalies_raw.csv (финальные)
 """
 
+import logging
 import re
 import time
-import logging
-import requests
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.edge.service import Service as EdgeService
-from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.edge.options import Options as EdgeOptions
+from selenium.webdriver.edge.service import Service as EdgeService
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
