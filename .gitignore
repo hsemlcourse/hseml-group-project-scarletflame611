@@ -101,3 +101,27 @@ ehthumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# =============================================================================
+# Project specific
+# =============================================================================
+
+# данные
+data/features/*.csv
+# модели — результаты экспериментов
+models/*.csv
+models/*.json
+# catboost логи
+catboost_info/
+src/catboost_info/
+notebooks/catboost_info/
+# временные скрипты
+test.py
+# jupyter exports
+notebooks/*.md
+notebooks/*_files/
+# лишняя папка src/models
+src/models/
+
+# report images — коммитим
+!report/images/*.png

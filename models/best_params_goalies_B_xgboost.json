@@ -1,0 +1,13 @@
+{
+  "best_mae": 2123414.7777777785,
+  "params": {
+    "n_estimators": 592,
+    "learning_rate": 0.01875220945578641,
+    "max_depth": 10,
+    "subsample": 0.8875664116805573,
+    "colsample_bytree": 0.9697494707820946,
+    "min_child_weight": 9,
+    "reg_alpha": 0.002404915432737351,
+    "reg_lambda": 1.9809253750493907
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "best_mae": 1423619.8592319193,
+  "params": {
+    "iterations": 820,
+    "learning_rate": 0.08184512303389924,
+    "depth": 4,
+    "l2_leaf_reg": 2.5292945481121077e-07,
+    "subsample": 0.8441147559750997,
+    "colsample_bylevel": 0.8680820464186396
+  }
+}

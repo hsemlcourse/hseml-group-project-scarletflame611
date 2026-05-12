@@ -1,0 +1,9 @@
+{
+  "best_mae": 1416344.3219119092,
+  "params": {
+    "n_estimators": 105,
+    "max_depth": 18,
+    "min_samples_leaf": 3,
+    "max_features": 0.47442721487386474
+  }
+}
