@@ -19,9 +19,15 @@ min_games_played = 10
 target_col = "cap_hit"
 log_target_col = "log_cap_hit"
 
+# постановка А
 train_seasons = [2022, 2023, 2024]
 val_seasons = [2025]
 test_seasons = [2026]
+
+# постановка Б: предсказываем контракт N+1
+train_seasons_B = [2022, 2023]
+val_seasons_B = [2024]
+test_seasons_B = [2025]
 
 raw_dir = Path("../data/raw")
 processed_dir = Path("../data/processed")
@@ -57,6 +63,28 @@ def make_temporal_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, p
     test = df[df["season_year"].isin(test_seasons)].copy()
     log.info("Разбивка: train=%d, val=%d, test=%d строк", len(train), len(val), len(test))
     return train, val, test
+
+
+def make_target_shift(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values(["playerId", "season_year"]).copy()
+
+    df["cap_hit_next"] = df.groupby("playerId")["cap_hit"].shift(-1)
+
+    df["salary_changed"] = (
+                                   (df["cap_hit_next"] - df["cap_hit"]).abs() / df["cap_hit"]
+                           ) > 0.05
+
+    # убрали ограничение по году, оставляем всех у кого есть N+1
+    df = df[
+        df["cap_hit_next"].notna() &
+        df["salary_changed"]
+        ].copy()
+
+    df[target_col] = df["cap_hit_next"]
+    df[log_target_col] = np.log1p(df["cap_hit_next"])
+
+    log.info("Постановка Б: %d игроков со сменой контракта", len(df))
+    return df
 
 
 def add_log_target(df: pd.DataFrame) -> pd.DataFrame:
@@ -173,6 +201,101 @@ def engineer_skater_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_lag_features_skaters(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values(["playerId", "season_year"]).copy()
+
+    lag_cols = [
+        "goals", "assists", "points",
+        "timeOnIcePerGame", "points_per_60",
+        "goals_per_60", "assists_per_60",
+        "hits", "blockedShots", "plusMinus",
+        "ppPoints", "cap_hit",
+    ]
+
+    for col in lag_cols:
+        if col not in df.columns:
+            continue
+        df[f"{col}_lag1"] = df.groupby("playerId")[col].shift(1)
+        df[f"{col}_delta"] = df[col] - df[f"{col}_lag1"]
+
+    # заполняем NaN у игроков без предыдущего сезона нулями
+    lag_created = [c for c in df.columns if c.endswith("_lag1") or c.endswith("_delta")]
+    df[lag_created] = df[lag_created].fillna(0)
+
+    log.info("Лаговые признаки скейтеры: добавлено %d колонок", len(lag_created))
+    return df
+
+
+def add_lag_features_goalies(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.sort_values(["playerId", "season_year"]).copy()
+
+    lag_cols = [
+        "savePct", "goalsAgainstAverage",
+        "wins", "shutouts", "gamesStarted",
+        "gsaa_proxy", "win_rate", "cap_hit",
+    ]
+
+    for col in lag_cols:
+        if col not in df.columns:
+            continue
+        df[f"{col}_lag1"] = df.groupby("playerId")[col].shift(1)
+        df[f"{col}_delta"] = df[col] - df[f"{col}_lag1"]
+
+    lag_created = [c for c in df.columns if c.endswith("_lag1") or c.endswith("_delta")]
+    df[lag_created] = df[lag_created].fillna(0)
+
+    log.info("Лаговые признаки вратари: добавлено %d колонок", len(lag_created))
+    return df
+
+
+def add_country_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Группируем страны рождения в 7 категорий.
+    Топ-6 хоккейных стран отдельно, остальные в OTHER.
+    """
+    hockey_countries = ["CAN", "USA", "RUS", "SWE", "FIN", "CZE"]
+
+    df["country_group"] = df["birthCountry"].apply(
+        lambda x: x if x in hockey_countries else "OTHER"
+    )
+    dummies = pd.get_dummies(
+        df["country_group"],
+        prefix="country",
+        dtype=int,
+    )
+    df = pd.concat([df, dummies], axis=1)
+    df = df.drop(columns=["country_group"])
+    created = [c for c in dummies.columns]
+    log.info("Страны: %s", df["birthCountry"].value_counts().head(8).to_dict())
+    log.info("Добавлены колонки: %s", created)
+    return df
+
+
+def add_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
+    # нелинейность возраста
+    df["age_squared"] = df["age"] ** 2
+    df["age_x_points_per_60"] = df["age"] * df["points_per_60"]
+
+    # признаки нападающих
+    df["points_per_60_x_forward"] = df["points_per_60"] * df["is_forward"]
+    df["goals_per_60_x_forward"] = df["goals_per_60"] * df["is_forward"]
+
+    # признаки защитников
+    is_defense = 1 - df["is_forward"]
+    df["hits_per_60_x_defense"] = df["hitsPer60"] * is_defense
+    df["blocked_per_60_x_defense"] = df["blockedShotsPer60"] * is_defense
+    df["plusminus_x_defense"] = df["plusMinus"] * is_defense
+
+    created = [
+        "age_squared", "age_x_points_per_60",
+        "points_per_60_x_forward", "goals_per_60_x_forward",
+        "hits_per_60_x_defense", "blocked_per_60_x_defense",
+        "plusminus_x_defense",
+    ]
+    log.info("Interaction features: добавлено %d колонок", len(created))
+    return df
+
+
 def prepare_skaters() -> dict[str, pd.DataFrame]:
     log.info("Загружаем сырые данные скейтеров")
     df = pd.read_csv(raw_dir / "nhl_skaters_raw.csv")
@@ -181,6 +304,8 @@ def prepare_skaters() -> dict[str, pd.DataFrame]:
     df = drop_leakage(df)
     df = clean_skaters(df)
     df = engineer_skater_features(df)
+    df = add_country_features(df)
+    df = add_interaction_features(df)
     df = add_log_target(df)
 
     df.to_csv(processed_dir / "skaters_processed.csv", index=False, encoding="utf-8-sig")
@@ -270,6 +395,8 @@ def prepare_goalies() -> dict[str, pd.DataFrame]:
     df = drop_leakage(df)
     df = clean_goalies(df)
     df = engineer_goalie_features(df)
+    df = add_lag_features_goalies(df)
+    df = add_country_features(df)
     df = add_log_target(df)
 
     df.to_csv(processed_dir / "goalies_processed.csv", index=False, encoding="utf-8-sig")
@@ -284,11 +411,149 @@ def prepare_goalies() -> dict[str, pd.DataFrame]:
     return {"train": train, "val": val, "test": test}
 
 
+def prepare_skaters_B() -> dict[str, pd.DataFrame]:
+    log.info("Постановка Б: скейтеры")
+    df = pd.read_csv(raw_dir / "nhl_skaters_raw.csv")
+
+    df = drop_leakage(df)
+    df = clean_skaters(df)
+    df = engineer_skater_features(df)
+    df = add_lag_features_skaters(df)
+    df = add_country_features(df)
+    df = add_interaction_features(df)
+    # применяем сдвиг и фильтрацию
+    df = make_target_shift(df)
+
+    # сплиты по season_year статистики
+    train = df[df["season_year"].isin(train_seasons_B)].copy()
+    val = df[df["season_year"].isin(val_seasons_B)].copy()
+    test = df[df["season_year"].isin(test_seasons_B)].copy()
+    log.info(
+        "Б скейтеры: train=%d, val=%d, test=%d",
+        len(train), len(val), len(test)
+    )
+
+    train.to_csv(features_dir / "skaters_B_train.csv", index=False, encoding="utf-8-sig")
+    val.to_csv(features_dir / "skaters_B_val.csv", index=False, encoding="utf-8-sig")
+    test.to_csv(features_dir / "skaters_B_test.csv", index=False, encoding="utf-8-sig")
+
+    return {"train": train, "val": val, "test": test}
+
+
+def prepare_goalies_B() -> dict[str, pd.DataFrame]:
+    log.info("Постановка Б: вратари")
+    df = pd.read_csv(raw_dir / "nhl_goalies_raw.csv")
+
+    df = drop_leakage(df)
+    df = clean_goalies(df)
+    df = engineer_goalie_features(df)
+    df = add_lag_features_goalies(df)
+    df = add_country_features(df)
+    df = make_target_shift(df)
+
+    train = df[df["season_year"].isin(train_seasons_B)].copy()
+    val = df[df["season_year"].isin(val_seasons_B)].copy()
+    test = df[df["season_year"].isin(test_seasons_B)].copy()
+    log.info(
+        "Б вратари: train=%d, val=%d, test=%d",
+        len(train), len(val), len(test)
+    )
+
+    train.to_csv(features_dir / "goalies_B_train.csv", index=False, encoding="utf-8-sig")
+    val.to_csv(features_dir / "goalies_B_val.csv", index=False, encoding="utf-8-sig")
+    test.to_csv(features_dir / "goalies_B_test.csv", index=False, encoding="utf-8-sig")
+
+    return {"train": train, "val": val, "test": test}
+
+
 def run():
     setup_dirs()
-    skater_splits = prepare_skaters()
-    goalie_splits = prepare_goalies()
-    return skater_splits, goalie_splits
+    log.info("ПОСТАНОВКА А: текущий cap hit")
+    skater_splits_A = prepare_skaters()
+    goalie_splits_A = prepare_goalies()
+
+    log.info("ПОСТАНОВКА Б: будущий контракт")
+    skater_splits_B = prepare_skaters_B()
+    goalie_splits_B = prepare_goalies_B()
+
+    _validate_splits()
+
+    return skater_splits_A, goalie_splits_A, skater_splits_B, goalie_splits_B
+
+
+def _validate_splits():
+    """
+    Проверяет что сплиты не пересекаются по сезонам и таргет корректен.
+    """
+    log.info("Валидация сплитов...")
+    checks = [
+        ("skaters_A", "skaters"),
+        ("skaters_B", "skaters_B"),
+        ("goalies_A", "goalies"),
+        ("goalies_B", "goalies_B"),
+    ]
+    for label, prefix in checks:
+        train_path = features_dir / f"{prefix}_train.csv"
+        val_path = features_dir / f"{prefix}_val.csv"
+        test_path = features_dir / f"{prefix}_test.csv"
+
+        if not all(p.exists() for p in [train_path, val_path, test_path]):
+            log.warning("%s: файлы не найдены", label)
+            continue
+
+        train = pd.read_csv(train_path)
+        val = pd.read_csv(val_path)
+        test = pd.read_csv(test_path)
+
+        # сезоны не пересекаются
+        train_seasons_set = set(train["season_year"].unique())
+        val_seasons_set = set(val["season_year"].unique())
+        test_seasons_set = set(test["season_year"].unique())
+
+        overlap_tv = train_seasons_set & val_seasons_set
+        overlap_vt = val_seasons_set & test_seasons_set
+        overlap_tt = train_seasons_set & test_seasons_set
+
+        if overlap_tv or overlap_vt or overlap_tt:
+            log.error(
+                "%s: ПЕРЕСЕЧЕНИЕ! train с val=%s, val с test=%s, train с test=%s",
+                label, overlap_tv, overlap_vt, overlap_tt
+            )
+        else:
+            log.info(
+                "%s: сезоны OK: train%s val%s test%s",
+                label,
+                sorted(train_seasons_set),
+                sorted(val_seasons_set),
+                sorted(test_seasons_set),
+            )
+
+        # таргет не пустой и в разумном диапазоне
+        for split_name, df in [("train", train), ("val", val), ("test", test)]:
+            if "log_cap_hit" not in df.columns:
+                log.error("%s %s: нет колонки log_cap_hit", label, split_name)
+                continue
+            nulls = df["log_cap_hit"].isna().sum()
+            if nulls > 0:
+                log.error("%s %s: %d NaN в log_cap_hit", label, split_name, nulls)
+            cap_min = np.expm1(df["log_cap_hit"].min()) / 1e6
+            cap_max = np.expm1(df["log_cap_hit"].max()) / 1e6
+            log.info(
+                "%s %s: %d строк, cap_hit=[%.2fM, %.2fM]",
+                label, split_name, len(df), cap_min, cap_max
+            )
+
+        # постановка Б: проверяем что cap_hit_next > 0
+        if "B" in label and "cap_hit_next" in train.columns:
+            for split_name, df in [("train", train), ("val", val), ("test", test)]:
+                bad = (df["cap_hit_next"] < 500_000).sum()
+                if bad > 0:
+                    log.warning(
+                        "%s %s: %d строк с cap_hit_next < 500K",
+                        label, split_name, bad
+                    )
+
+    log.info("Валидация завершена")
 
 
 if __name__ == "__main__":
