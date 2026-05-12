@@ -163,29 +163,26 @@ pre-commit run --all-files
 случайный сплит создаёт утечку данных.
  
  
-## Результаты
- 
-### Скейтеры (оценка на val, сезон 2025)
- 
-| Модель | MAE | RMSE | R² | MAPE |
+## Результаты CP2
+
+### Скейтеры: лучшие оценки на test, сезон 2026
+
+| Модель | Val MAE | Test MAE | MAPE | R² |
 |---|---|---|---|---|
-| LinearRegression (baseline) | 1.307M | 1.869M | 0.581 | 46.0% |
-| Ridge | 1.307M | 1.861M | 0.585 | 45.1% |
-| Random Forest | 1.229M | 1.768M | 0.626 | 36.1% |
-| XGBoost | 1.167M | 1.666M | 0.667 | 35.7% |
-| **LightGBM** | **1.095M** | **1.602M** | **0.693** | **34.3%** |
-| LightGBM + SelectFromModel (39 фичей) | 1.101M | 1.617M | 0.687 | 33.9% |
-| PCA (37 компонент) + Ridge | 1.432M | 2.016M | 0.513 | 45.6% |
- 
-### Вратари (оценка на val, сезон 2025)
- 
-| Модель | MAE | RMSE | R² | MAPE |
-|---|---|---|---|---|
-| LinearRegression (baseline) | 1.748M | 2.438M | 0.188 | 53.3% |
-| Ridge | 1.709M | 2.339M | 0.253 | 48.3% |
-| **Random Forest** | **1.483M** | **2.001M** | **0.453** | **43.7%** |
-| XGBoost | 1.487M | 1.974M | 0.468 | 45.0% |
-| LightGBM | 1.613M | 2.160M | 0.362 | 48.1% |
+| LinearRegression (baseline) | 1.275M | — | 41.3% | 0.603 |
+| Ridge | 1.269M | — | 40.6% | 0.611 |
+| ElasticNet tuned | 1.242M | — | 40.6% | 0.632 |
+| XGBoost tuned | 1.063M | 1.287M | 33.0% | 0.648 |
+| Stacking | 1.070M | 1.274M | 32.3% | 0.654 |
+| **LightGBM + SelectFromModel (46 фичей)** | **1.080M** | **1.247M** | **31.5%** | **0.667** |
+
+### Вратари: кросс-валидация по сезонам, лучшие оценки
+
+| Модель | CV MAE | MAPE | R² |
+|---|---|---|---|
+| **CatBoost** | **1.251M** | **43.7%** | **0.529** |
+| XGBoost tuned | 1.255M | 44.0% | 0.516 |
+| CatBoost tuned | 1.260M | 43.5% | 0.521 |
 
 
 ## Статус CP1
@@ -214,6 +211,25 @@ pre-commit run --all-files
 - [x] `requirements.txt` с версиями
 - [x] `random_state = 42` везде
 - [x] Линтер (ruff) 
+
+## Статус CP2
+
+### Моделирование и эксперименты
+- [x] 6 моделей + tuned версии + ансамбль (15 конфигураций)
+- [x] ElasticNet как 6-я модель
+- [x] Optuna тюнинг (50 trials для А, 30 для Б)
+- [x] Stacking (LightGBM + XGBoost + CatBoost + RF -> Ridge)
+- [x] Две постановки задачи (А - текущий, Б - будущий контракт)
+- [x] SHAP анализ (summary, waterfall, dependence plots)
+- [x] Финальная оценка на test-сете
+- [x] Error analysis по позициям и диапазонам зарплат
+- [x] Обоснование финальной модели с trade-off анализом
+
+### Качество кода и воспроизводимость
+- [x] Docker + docker-compose
+- [x] Makefile
+- [x] 13 тестов (pytest)
+- [x] pre-commit (ruff)
 
 ## Отчёт
 
