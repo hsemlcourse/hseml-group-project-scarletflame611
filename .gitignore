@@ -110,7 +110,6 @@ htmlcov/
 data/features/*.csv
 # модели — результаты экспериментов
 models/*.csv
-models/*.json
 # catboost логи
 catboost_info/
 src/catboost_info/
