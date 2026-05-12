@@ -5,28 +5,28 @@
 Вратари:  data/features/goalies_*.csv
 """
 
-import logging
-from pathlib import Path
 import json
+import logging
+import os
+import warnings
+from pathlib import Path
+
 import joblib
 import numpy as np
+import optuna
 import pandas as pd
+from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
+from optuna.samplers import TPESampler
 from sklearn import set_config
 from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, StackingRegressor
 from sklearn.feature_selection import SelectFromModel
-from sklearn.linear_model import LinearRegression, Ridge, ElasticNet
+from sklearn.linear_model import ElasticNet, LinearRegression, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
-from catboost import CatBoostRegressor
-import optuna
-from optuna.samplers import TPESampler
-from sklearn.ensemble import StackingRegressor
-import warnings
-import os
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

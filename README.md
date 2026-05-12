@@ -90,6 +90,62 @@ python src/preprocessing.py
 python src/modeling.py
 ```
 
+## Docker
+
+Запуск всего проекта в контейнере:
+
+```bash
+# собрать и запустить
+docker-compose up --build
+
+# открыть Jupyter в браузере
+# http://localhost:8888
+# токен: nhl
+```
+
+Внутри контейнера доступны все команды:
+
+```bash
+# препроцессинг
+docker-compose exec app python src/preprocessing.py
+
+# обучение
+docker-compose exec app python src/modeling.py
+```
+
+## Makefile
+
+```bash
+make lint-init   # первый запуск pre-commit (создаёт среду для хуков)
+make lint      # проверка линтером (без изменений)
+make lint-fix  # автоматическое исправление + форматирование       # проверка линтером
+make preprocess  # запуск preprocessing.py
+make train       # запуск modeling.py
+make test        # запуск тестов
+make docker-up   # запуск docker-compose
+make docker-down # остановка контейнеров
+```
+
+## pre-commit
+
+Хук автоматически запускает ruff перед каждым `git commit`.
+
+Установка:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+При первом запуске создаётся изолированная среда для хуков
+(может занять 1-2 минуты):
+```bash
+pre-commit run --all-files
+```
+
+После этого хук будет запускаться автоматически при каждом коммите.
+Если ruff найдёт ошибки — коммит не пройдёт, файлы будут исправлены
+автоматически, их нужно добавить в `git add` и закоммитить снова.
+
 ## Данные
  
 | Файл | Описание | Строк | Колонок |
