@@ -10,10 +10,11 @@
 
 1. [Описание задачи](#описание-задачи)
 2. [Структура репозитория](#структура-репозитория)
-3. [Запуски](#быстрый-старт)
+3. [Запуски](#запуск)
 4. [Данные](#данные)
-5. [Результаты](#результаты)
+5. [Результаты](#результаты-cp2)
 6. [Статус CP1](#статус-cp1)
+6. [Статус CP2](#статус-cp2)
 7. [Отчёт](#отчёт)
 
 
@@ -58,7 +59,12 @@
 ├── tests
 │   └── test_pipeline.py        # Тесты пайплайна
 ├── requirements.txt
-└── README.md
+├── README.md
+├── Dockerfile
+├── docker-compose.yml
+├── Makefile
+├── .pre-commit-config.yaml
+├── pyproject.toml
 ```
 
 ## Запуск
@@ -214,22 +220,31 @@ pre-commit run --all-files
 
 ## Статус CP2
 
+### Данные (улучшения)
+- [x] Постановка Б: сдвиг таргета (статистика N -> контракт N+1)
+- [x] Лаговые признаки для вратарей 
+- [x] Interaction features для позиций (`points_per_60_x_forward`, `hits_per_60_x_defense` и др.)
+- [x] Кодирование `birthCountry` (7 групп: CAN, USA, RUS, SWE, FIN, CZE, OTHER)
+- [x] `age_squared` и `age_x_points_per_60` - нелинейность возраста
+
 ### Моделирование и эксперименты
-- [x] 6 моделей + tuned версии + ансамбль (15 конфигураций)
-- [x] ElasticNet как 6-я модель
-- [x] Optuna тюнинг (50 trials для А, 30 для Б)
-- [x] Stacking (LightGBM + XGBoost + CatBoost + RF -> Ridge)
-- [x] Две постановки задачи (А - текущий, Б - будущий контракт)
-- [x] SHAP анализ (summary, waterfall, dependence plots)
-- [x] Финальная оценка на test-сете
+- [x] 6 базовых моделей: Ridge, ElasticNet, Random Forest, XGBoost, LightGBM, CatBoost
+- [x] Optuna тюнинг всех моделей (50 trials постановка А, 30 для Б)
+- [x] Stacking ансамбль (LightGBM + XGBoost + CatBoost + RF -> Ridge)
+- [x] Уменьшение размерности: SelectFromModel и PCA + Ridge
+- [x] Две постановки задачи со сравнением
+- [x] Кросс-валидация по сезонам для вратарей
+- [x] SHAP анализ: summary plot, waterfall plots, dependence plots
+- [x] Финальная оценка на test-сете, val vs test сравнение
 - [x] Error analysis по позициям и диапазонам зарплат
 - [x] Обоснование финальной модели с trade-off анализом
 
 ### Качество кода и воспроизводимость
-- [x] Docker + docker-compose
-- [x] Makefile
-- [x] 13 тестов (pytest)
-- [x] pre-commit (ruff)
+- [x] Docker + docker-compose (jupyter + весь пайплайн в контейнере)
+- [x] Makefile: `make lint`, `make lint-fix`, `make preprocess`, `make train`, `make test`, `make docker-up`
+- [x] 13 smoke-тестов (pytest): данные, сплиты, leakage, модель
+- [x] pre-commit хук (ruff автоматически перед каждым коммитом)
+
 
 ## Отчёт
 
