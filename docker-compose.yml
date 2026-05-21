@@ -1,5 +1,16 @@
 services:
-  app:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+
+  jupyter:
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,3 +20,11 @@ services:
       - .:/app
     environment:
       - JUPYTER_TOKEN=nhl
+      - PYTHONPATH=/app
+    command: >
+      jupyter notebook
+      --ip=0.0.0.0
+      --port=8888
+      --no-browser
+      --allow-root
+      --notebook-dir=/app/notebooks

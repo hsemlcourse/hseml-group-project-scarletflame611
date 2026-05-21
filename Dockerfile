@@ -2,7 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# системные зависимости для catboost и lightgbm
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -11,11 +10,9 @@ RUN apt-get update && apt-get install -y \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir jupyter
 
-# копируем проект
 COPY . .
 
-EXPOSE 8888
+EXPOSE 8000
 
-CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--notebook-dir=/app/notebooks"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
