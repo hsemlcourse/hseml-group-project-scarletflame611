@@ -556,5 +556,162 @@ def _validate_splits():
     log.info("Валидация завершена")
 
 
+# -----Препроцессинг одного игрока для API------
+
+SKATER_LAG_COLS = [
+    "goals", "assists", "points",
+    "timeOnIcePerGame", "points_per_60",
+    "goals_per_60", "assists_per_60",
+    "hits", "blockedShots", "plusMinus",
+    "ppPoints", "cap_hit",
+]
+
+GOALIE_LAG_COLS = [
+    "savePct", "goalsAgainstAverage",
+    "wins", "shutouts", "gamesStarted",
+    "gsaa_proxy", "win_rate", "cap_hit",
+]
+
+HOCKEY_COUNTRIES = ["CAN", "USA", "RUS", "SWE", "FIN", "CZE"]
+
+
+def _add_country_dummies(df: pd.DataFrame) -> pd.DataFrame:
+    """Воспроизводит add_country_features для одной строки."""
+    country = df["birthCountry"].iloc[0] if "birthCountry" in df.columns else ""
+    group = country if country in HOCKEY_COUNTRIES else "OTHER"
+    for c in HOCKEY_COUNTRIES + ["OTHER"]:
+        df[f"country_{c}"] = 1 if group == c else 0
+    return df
+
+
+def engineer_one_skater(
+        raw: dict,
+        prev_season: dict | None = None,
+) -> pd.DataFrame:
+    """
+    Препроцессинг одного скейтера для предсказания через API.
+
+    raw: словарь с полями игрока (из SkaterInput)
+    prev_season: опциональная статистика прошлого сезона для лаговых фич.
+                 Если None — лаговые фичи заполняются нулями.
+
+    Возвращает pd.DataFrame с одной строкой, готовой к model.predict().
+    """
+    df = pd.DataFrame([raw])
+    df["pointsPerGame"] = (
+            df["points"] / df["gamesPlayed"].replace(0, np.nan)
+    ).fillna(0)
+
+    toi_h = df["timeOnIcePerGame"] * df["gamesPlayed"] / 3600
+    toi_h = toi_h.replace(0, np.nan)
+    df["goals_per_60"] = (df["goals"] / toi_h * 60).fillna(0)
+    df["assists_per_60"] = (df["assists"] / toi_h * 60).fillna(0)
+    df["points_per_60"] = (df["points"] / toi_h * 60).fillna(0)
+
+    if "draftYear" in df.columns and df["draftYear"].notna().all():
+        df["age"] = df["season_year"] - df["draftYear"] + 18
+        df["is_undrafted"] = 0
+    else:
+        df["age"] = 28
+        df["is_undrafted"] = 1
+        df["draftYear"] = np.nan
+        df["draftRound"] = np.nan
+        df["draftOverall"] = np.nan
+
+    if df["draftRound"].notna().all() and df["draftOverall"].notna().all():
+        df["draft_value"] = (df["draftRound"] - 1) * 36 + df["draftOverall"]
+    else:
+        df["draft_value"] = 302
+
+    df["size_index"] = df.get("heightInInches", 73) * df.get("weightInPounds", 200)
+
+    pos = raw.get("positionCode", "C")
+    df["is_forward"] = 1 if pos in ["C", "L", "R"] else 0
+    df["is_multi_team"] = 0  # для нового игрока не знаем
+
+    df["age_squared"] = df["age"] ** 2
+    df["age_x_points_per_60"] = df["age"] * df["points_per_60"]
+    df["points_per_60_x_forward"] = df["points_per_60"] * df["is_forward"]
+    df["goals_per_60_x_forward"] = df["goals_per_60"] * df["is_forward"]
+    is_defense = 1 - df["is_forward"]
+    df["hits_per_60_x_defense"] = df.get("hitsPer60", 0) * is_defense
+    df["blocked_per_60_x_defense"] = df.get("blockedShotsPer60", 0) * is_defense
+    df["plusminus_x_defense"] = df["plusMinus"] * is_defense
+
+    df = _add_country_dummies(df)
+
+    for col in SKATER_LAG_COLS:
+        if prev_season and col in prev_season:
+            df[f"{col}_lag1"] = prev_season[col]
+            current = raw.get(col, 0) or 0
+            df[f"{col}_delta"] = current - prev_season[col]
+        else:
+            df[f"{col}_lag1"] = 0
+            df[f"{col}_delta"] = 0
+
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(0)
+
+    return df
+
+
+def engineer_one_goalie(
+        raw: dict,
+        prev_season: dict | None = None,
+) -> pd.DataFrame:
+    """
+    Препроцессинг одного вратаря для предсказания через API.
+    """
+    df = pd.DataFrame([raw])
+
+    df["starter_ratio"] = (
+            df.get("gamesStarted", 0) / df["gamesPlayed"].replace(0, np.nan)
+    ).fillna(0)
+
+    league_avg_svpct = 0.8933
+    df["gsaa_proxy"] = (
+                               df.get("savePct", league_avg_svpct) - league_avg_svpct
+                       ) * df.get("shotsAgainst", 0)
+
+    df["win_rate"] = (
+            df.get("wins", 0) / df["gamesPlayed"].replace(0, np.nan)
+    ).fillna(0)
+
+    if "draftYear" in df.columns and df["draftYear"].notna().all():
+        df["age"] = df["season_year"] - df["draftYear"] + 18
+        df["is_undrafted"] = 0
+    else:
+        df["age"] = 28
+        df["is_undrafted"] = 1
+        df["draftYear"] = np.nan
+        df["draftRound"] = np.nan
+        df["draftOverall"] = np.nan
+
+    if df["draftRound"].notna().all() and df["draftOverall"].notna().all():
+        df["draft_value"] = (df["draftRound"] - 1) * 36 + df["draftOverall"]
+    else:
+        df["draft_value"] = 302
+
+    df["size_index"] = df.get("heightInInches", 73) * df.get("weightInPounds", 195)
+    df["is_multi_team"] = 0
+    df["age_squared"] = df["age"] ** 2
+
+    df = _add_country_dummies(df)
+
+    for col in GOALIE_LAG_COLS:
+        if prev_season and col in prev_season:
+            df[f"{col}_lag1"] = prev_season[col]
+            current = raw.get(col, 0) or 0
+            df[f"{col}_delta"] = current - prev_season[col]
+        else:
+            df[f"{col}_lag1"] = 0
+            df[f"{col}_delta"] = 0
+
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    df[numeric_cols] = df[numeric_cols].fillna(0)
+
+    return df
+
+
 if __name__ == "__main__":
     run()
