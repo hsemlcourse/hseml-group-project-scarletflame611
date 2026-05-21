@@ -1,0 +1,1678 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NHL Salary Predictor</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #080C18;
+  --bg2:      #0D1225;
+  --bg3:      #131929;
+  --border:   #1E2740;
+  --border2:  #2A3555;
+  --ice:      #00C8F0;
+  --ice-dim:  #00C8F015;
+  --ice-mid:  #00C8F040;
+  --gold:     #F0B429;
+  --green:    #22D3A0;
+  --red:      #F05252;
+  --text:     #E8EDF8;
+  --text-dim: #6B7A9E;
+  --text-mid: #9BA8C8;
+  --r:        12px;
+  --r-lg:     20px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.25;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: -30%; left: -10%;
+  width: 70%; height: 70%;
+  background: radial-gradient(ellipse, #00C8F008 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap { position: relative; z-index: 1; max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+/* HEADER */
+header {
+  border-bottom: 1px solid var(--border);
+  background: #080C18ee;
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-inner {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+.logo-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 24px; font-weight: 800;
+  letter-spacing: 2px;
+}
+.logo-title span { color: var(--ice); }
+.logo-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.api-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.api-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green);
+  animation: blink 2s infinite;
+}
+.api-dot.offline { background: var(--red); box-shadow: 0 0 8px var(--red); animation: none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* HERO */
+.hero { padding: 60px 0 40px; text-align: center; }
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--ice-dim); border: 1px solid var(--ice-mid);
+  border-radius: 20px; padding: 5px 16px;
+  font-size: 11px; color: var(--ice);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 20px;
+}
+.hero h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(36px, 6vw, 68px);
+  font-weight: 800; letter-spacing: 2px; line-height: 1.0;
+  margin-bottom: 18px;
+}
+.hero h1 .accent { color: var(--ice); }
+.hero-desc {
+  font-size: 15px; color: var(--text-mid);
+  max-width: 600px; margin: 0 auto 32px; line-height: 1.75;
+}
+.hero-model {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 8px;
+  margin-bottom: 32px;
+}
+.hero-model span {
+  color: var(--ice);
+  font-weight: 600;
+}
+.hero-metrics {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 0;
+}
+.hero-metric {
+  padding: 14px 28px;
+  border-right: 1px solid var(--border);
+  text-align: center;
+}
+.hero-metric:last-child { border-right: none; }
+.hero-metric-val {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 26px; font-weight: 700; color: var(--ice);
+}
+.hero-metric-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.5px; }
+
+/* TABS BAR */
+.tabs-bar {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 57px; z-index: 90;
+}
+.tabs-inner { display: flex; align-items: center; }
+.type-toggle {
+  display: flex; gap: 4px;
+  padding: 10px 16px;
+  border-right: 1px solid var(--border);
+}
+.type-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  padding: 5px 14px; cursor: pointer;
+  transition: all 0.15s;
+}
+.type-btn.active {
+  background: var(--ice-dim);
+  border-color: var(--ice-mid);
+  color: var(--ice);
+}
+.nav-tabs { display: flex; gap: 0; padding: 0 8px; }
+.nav-tab {
+  background: transparent; border: none;
+  color: var(--text-dim);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  padding: 16px 20px; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.nav-tab:hover { color: var(--text-mid); }
+.nav-tab.active { color: var(--ice); border-bottom-color: var(--ice); }
+
+/* MAIN CONTENT */
+.content { padding: 32px 0 64px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* FORM LAYOUT */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 800px) { .form-grid { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 24px;
+}
+
+.card-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px; font-weight: 700;
+  letter-spacing: 1px; color: var(--text);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-label {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin: 20px 0 10px;
+}
+.section-label:first-of-type { margin-top: 0; }
+
+.fields-row { display: grid; gap: 12px; }
+.fields-2 { grid-template-columns: 1fr 1fr; }
+.fields-3 { grid-template-columns: 1fr 1fr 1fr; }
+.fields-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 12px; color: var(--text-dim); font-weight: 500;
+}
+.field input, .field select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.field input:focus, .field select:focus { border-color: var(--ice-mid); }
+.field select option { background: var(--bg3); }
+
+.btn-predict {
+  width: 100%; margin-top: 20px;
+  background: var(--ice);
+  border: none; border-radius: var(--r);
+  color: #080C18;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px; font-weight: 700;
+  letter-spacing: 1.5px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-predict:hover { background: #22DDFF; transform: translateY(-1px); }
+.btn-predict:active { transform: translateY(0); }
+.btn-predict:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.collapsible-header {
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer;
+  padding: 12px 0; margin-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-dim);
+  user-select: none;
+}
+.collapsible-header:hover { color: var(--text-mid); }
+.collapsible-arrow { transition: transform 0.2s; }
+.collapsible-arrow.open { transform: rotate(180deg); }
+.collapsible-body { display: none; padding-top: 12px; }
+.collapsible-body.open { display: block; }
+
+/* RESULT CARD */
+.result-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 400px;
+  color: var(--text-dim); font-size: 14px;
+  text-align: center; gap: 12px;
+}
+.result-empty-icon { font-size: 40px; opacity: 0.3; }
+
+.salary-display {
+  text-align: center;
+  padding: 28px 20px;
+  background: var(--bg3);
+  border-radius: var(--r);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.salary-display::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, var(--ice-dim), transparent 70%);
+}
+.salary-label { font-size: 11px; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
+.salary-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 56px; font-weight: 800;
+  color: var(--ice); line-height: 1;
+  position: relative;
+}
+.salary-tier {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 12px;
+  background: var(--ice-dim); border: 1px solid var(--ice-mid);
+  border-radius: 20px; padding: 4px 14px;
+  font-size: 13px; font-weight: 600; color: var(--ice);
+  position: relative;
+}
+
+.fairness-badge {
+  border-radius: var(--r);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+.fairness-badge .fb-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.fairness-badge .fb-vals { display: flex; gap: 20px; margin-top: 8px; font-size: 12px; }
+
+.shap-section { margin-bottom: 16px; }
+.shap-title { font-size: 12px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+.shap-chart-wrap { height: 180px; }
+
+.similar-title { font-size: 12px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+.similar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+.similar-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 8px; text-align: center;
+  transition: border-color 0.15s;
+}
+.similar-card:hover { border-color: var(--border2); }
+.similar-name { font-size: 11px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 4px; }
+.similar-pos { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+.similar-salary { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; color: var(--green); }
+.similar-stat { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+
+/* WHAT IF */
+.whatif-section {
+  margin-top: 24px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 20px;
+}
+.whatif-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 16px; font-weight: 700; letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.whatif-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 16px; }
+.whatif-sliders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.slider-field { display: flex; flex-direction: column; gap: 6px; }
+.slider-label { font-size: 12px; color: var(--text-dim); }
+.slider-val { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); }
+.slider-field input[type=range] {
+  width: 100%; accent-color: var(--ice);
+  height: 4px; cursor: pointer;
+}
+.whatif-result {
+  margin-top: 16px; padding: 14px;
+  background: var(--bg3); border-radius: var(--r);
+  display: none;
+}
+.whatif-result.show { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.wi-metric { text-align: center; }
+.wi-metric-label { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+.wi-metric-val { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; }
+.wi-delta { font-size: 12px; margin-top: 2px; }
+.wi-delta.up { color: var(--green); }
+.wi-delta.down { color: var(--red); }
+
+/* SEARCH TAB */
+.search-box {
+  position: relative;
+  margin-bottom: 24px;
+  z-index: 50;
+}
+
+#tab-search {
+  overflow: visible;
+}
+.search-input {
+  width: 100%;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 16px;
+  padding: 16px 20px; outline: none;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: var(--ice-mid); }
+.search-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); z-index: 50;
+  overflow-y: auto;
+  max-height: 280px;
+  display: none;
+  box-shadow: 0 16px 48px #00000080;
+}
+.search-dropdown.show { display: block; }
+.search-item {
+  padding: 12px 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background 0.1s;
+}
+.search-item:hover { background: var(--bg3); }
+.search-item-name { font-weight: 500; font-size: 14px; }
+.search-item-meta { font-size: 12px; color: var(--text-dim); }
+.search-item-salary { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; color: var(--gold); }
+
+.search-result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 800px) { .search-result-grid { grid-template-columns: 1fr; } }
+
+.player-profile {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 24px;
+}
+.player-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px; font-weight: 800; letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.player-meta { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; }
+.player-real-salary {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px; font-weight: 700; color: var(--gold);
+  margin-bottom: 20px;
+}
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat-item { background: var(--bg3); border-radius: 8px; padding: 10px; text-align: center; }
+.stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; }
+.stat-key { font-size: 10px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+.metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.metric-box { background: var(--bg3); border-radius: 8px; padding: 12px; text-align: center; }
+.metric-val { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; }
+.metric-label { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+/* BATCH TAB */
+.batch-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 800px) { .batch-layout { grid-template-columns: 1fr; } }
+
+.drop-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--r-lg);
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg2);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--ice-mid);
+  background: var(--ice-dim);
+}
+.drop-icon { font-size: 36px; margin-bottom: 12px; }
+.drop-text { font-size: 15px; color: var(--text-mid); margin-bottom: 6px; }
+.drop-sub { font-size: 12px; color: var(--text-dim); }
+#file-input { display: none; }
+
+.btn-template {
+  display: inline-block; margin-top: 16px;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text-mid);
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  padding: 8px 16px; cursor: pointer; transition: all 0.15s;
+  text-decoration: none;
+}
+.btn-template:hover { border-color: var(--ice-mid); color: var(--ice); }
+
+.batch-results { display: none; }
+.batch-results.show { display: block; }
+.batch-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.batch-stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; text-align: center; }
+.batch-stat-val { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700; color: var(--ice); }
+.batch-stat-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+.batch-chart-wrap { height: 200px; margin-bottom: 20px; }
+
+.top5-list { display: flex; flex-direction: column; gap: 8px; }
+.top5-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 16px;
+}
+.top5-rank { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; color: var(--border2); width: 24px; }
+.top5-name { flex: 1; font-weight: 500; font-size: 14px; }
+.top5-tier { font-size: 11px; padding: 2px 10px; border-radius: 10px; }
+.top5-salary { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; color: var(--green); }
+
+.results-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+.results-table th {
+  text-align: left; padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim); font-weight: 500;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+}
+.results-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.results-table tr:last-child td { border-bottom: none; }
+.results-table tr:hover td { background: var(--bg3); }
+
+.btn-download {
+  margin-top: 12px;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text-mid);
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  padding: 8px 16px; cursor: pointer; transition: all 0.15s;
+}
+.btn-download:hover { border-color: var(--green); color: var(--green); }
+
+/* LOADING */
+.spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--ice);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loader-wrap { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px; color: var(--text-dim); font-size: 14px; }
+
+/* TIER COLORS */
+.tier-entry   { background: #6B728020; border-color: #6B728060; color: #9CA3AF; }
+.tier-bottom  { background: #3B82F620; border-color: #3B82F660; color: #60A5FA; }
+.tier-middle  { background: #10B98120; border-color: #10B98160; color: #34D399; }
+.tier-top     { background: #F59E0B20; border-color: #F59E0B60; color: #FBB040; }
+.tier-star    { background: #EF444420; border-color: #EF444460; color: #F87171; }
+.tier-franchise { background: #8B5CF620; border-color: #8B5CF660; color: #A78BFA; }
+
+.divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 20px;
+  font-size: 13px; color: var(--text);
+  box-shadow: 0 8px 32px #00000060;
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s; z-index: 1000;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap header-inner">
+    <div>
+      <div class="logo-title">🏒 NHL <span>SALARY</span> PREDICTOR</div>
+      <div class="logo-sub">ML-модель предсказания зарплат · Сезоны 2021–22 → 2025–26</div>
+    </div>
+    <div class="api-status">
+      <div class="api-dot offline" id="api-dot"></div>
+      <span id="api-label">Проверка API...</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-badge">🤖 Machine Learning · Регрессия</div>
+    <h1>Сколько стоит<br><span class="accent">хоккеист НХЛ?</span></h1>
+    <p class="hero-desc">
+  Предсказание годовой зарплаты (cap hit) хоккеистов НХЛ на основе
+  игровой статистики и биографических данных. Данные собраны с NHL Stats API,
+  NHL Web API и Spotrac за 5 сезонов.
+</p>
+<p class="hero-model" id="hero-model">
+  Финальная модель: <span id="model-name">LightGBM + SelectFromModel (46 признаков)</span>
+</p>
+    <div class="hero-metrics" id="hero-metrics">
+  <div class="hero-metric">
+    <div class="hero-metric-val" id="m-mae">$1.247M</div>
+    <div class="hero-metric-label">MAE</div>
+  </div>
+  <div class="hero-metric">
+    <div class="hero-metric-val" id="m-mape">31.5%</div>
+    <div class="hero-metric-label">MAPE</div>
+  </div>
+  <div class="hero-metric">
+    <div class="hero-metric-val" id="m-r2">0.667</div>
+    <div class="hero-metric-label">R²</div>
+  </div>
+  <div class="hero-metric">
+    <div class="hero-metric-val">4748</div>
+    <div class="hero-metric-label">записей в датасете</div>
+  </div>
+  <div class="hero-metric">
+    <div class="hero-metric-val">5</div>
+    <div class="hero-metric-label">сезонов</div>
+  </div>
+</div>
+  </section>
+</div>
+
+<div class="tabs-bar">
+  <div class="wrap tabs-inner">
+    <div class="type-toggle">
+      <button class="type-btn active" onclick="setType('skater')">🏒 Скейтер</button>
+      <button class="type-btn" onclick="setType('goalie')">🥅 Вратарь</button>
+    </div>
+    <nav class="nav-tabs">
+      <button class="nav-tab active" onclick="setTab('form')">✏️ Ввод вручную</button>
+      <button class="nav-tab" onclick="setTab('search')">🔍 Поиск игрока</button>
+      <button class="nav-tab" onclick="setTab('batch')">📂 Пакетное</button>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap content">
+
+  <!-- FORM TAB -->
+  <div class="tab-panel active" id="tab-form">
+    <div class="form-grid">
+      <!-- LEFT: inputs -->
+      <div>
+        <div class="card" id="skater-form">
+          <div class="card-title">СТАТИСТИКА СКЕЙТЕРА</div>
+
+          <div class="section-label">Основное</div>
+          <div class="fields-row fields-3">
+            <div class="field">
+              <label>Позиция</label>
+              <select id="f-position">
+                <option value="C">C — Центр</option>
+                <option value="L">L — Левый вингер</option>
+                <option value="R">R — Правый вингер</option>
+                <option value="D">D — Защитник</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Матчей сыграно</label>
+              <input type="number" id="f-games" value="60" min="1" max="82">
+            </div>
+            <div class="field">
+              <label>TOI / игру (мин)</label>
+              <input type="number" id="f-toi" value="15.0" min="5" max="30" step="0.5">
+            </div>
+          </div>
+
+          <div class="section-label">Результативность</div>
+          <div class="fields-row fields-4">
+            <div class="field">
+              <label>Голы</label>
+              <input type="number" id="f-goals" value="15" min="0" max="100">
+            </div>
+            <div class="field">
+              <label>Передачи</label>
+              <input type="number" id="f-assists" value="25" min="0" max="100">
+            </div>
+            <div class="field">
+              <label>Очки</label>
+              <input type="number" id="f-points" value="40" min="0" max="200">
+            </div>
+            <div class="field">
+              <label>+/-</label>
+              <input type="number" id="f-pm" value="0" min="-50" max="50">
+            </div>
+          </div>
+
+          <div class="section-label">Большинство</div>
+          <div class="fields-row fields-3">
+            <div class="field">
+              <label>Очки в большинстве</label>
+              <input type="number" id="f-pppoints" value="8" min="0" max="60">
+            </div>
+            <div class="field">
+              <label>Голы в большинстве</label>
+              <input type="number" id="f-ppgoals" value="3" min="0" max="30">
+            </div>
+            <div class="field">
+              <label>TOI большинство (мин)</label>
+              <input type="number" id="f-pptoi" value="1.5" min="0" max="8" step="0.1">
+            </div>
+          </div>
+
+          <div class="section-label">Физические действия</div>
+          <div class="fields-row fields-3">
+            <div class="field">
+              <label>Хиты</label>
+              <input type="number" id="f-hits" value="50" min="0" max="400">
+            </div>
+            <div class="field">
+              <label>Заблокированные броски</label>
+              <input type="number" id="f-blocks" value="30" min="0" max="300">
+            </div>
+            <div class="field">
+              <label>Штрафные минуты</label>
+              <input type="number" id="f-pim" value="20" min="0" max="200">
+            </div>
+          </div>
+
+          <div class="section-label">Биография</div>
+          <div class="fields-row fields-4">
+            <div class="field">
+              <label>Рост (дюймы)</label>
+              <input type="number" id="f-height" value="73" min="60" max="84">
+            </div>
+            <div class="field">
+              <label>Вес (фунты)</label>
+              <input type="number" id="f-weight" value="200" min="150" max="280">
+            </div>
+            <div class="field">
+              <label>Страна</label>
+              <select id="f-country">
+                <option value="CAN">🇨🇦 Канада</option>
+                <option value="USA">🇺🇸 США</option>
+                <option value="RUS">🇷🇺 Россия</option>
+                <option value="SWE">🇸🇪 Швеция</option>
+                <option value="FIN">🇫🇮 Финляндия</option>
+                <option value="CZE">🇨🇿 Чехия</option>
+                <option value="OTHER">Другая</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Год драфта</label>
+              <input type="number" id="f-draft" value="2018" min="1990" max="2025">
+            </div>
+          </div>
+
+          <div class="collapsible-header" onclick="toggleCollapsible(this)">
+            <span>📋 Статистика прошлого сезона (улучшает точность)</span>
+            <span class="collapsible-arrow">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <div class="fields-row fields-3">
+              <div class="field">
+                <label>Голы (прошлый)</label>
+                <input type="number" id="f-prev-goals" value="0" min="0">
+              </div>
+              <div class="field">
+                <label>Передачи (прошлый)</label>
+                <input type="number" id="f-prev-assists" value="0" min="0">
+              </div>
+              <div class="field">
+                <label>Очки (прошлый)</label>
+                <input type="number" id="f-prev-points" value="0" min="0">
+              </div>
+              <div class="field">
+                <label>TOI / игру (прошлый, мин)</label>
+                <input type="number" id="f-prev-toi" value="0" min="0" step="0.5">
+              </div>
+              <div class="field">
+                <label>Хиты (прошлый)</label>
+                <input type="number" id="f-prev-hits" value="0" min="0">
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-predict" onclick="predictForm()">ПРЕДСКАЗАТЬ ЗАРПЛАТУ</button>
+        </div>
+
+        <div class="card" id="goalie-form" style="display:none">
+          <div class="card-title">СТАТИСТИКА ВРАТАРЯ</div>
+
+          <div class="section-label">Основное</div>
+          <div class="fields-row fields-4">
+            <div class="field">
+              <label>Матчей сыграно</label>
+              <input type="number" id="g-games" value="40" min="1" max="82">
+            </div>
+            <div class="field">
+              <label>Стартов</label>
+              <input type="number" id="g-started" value="35" min="0" max="82">
+            </div>
+            <div class="field">
+              <label>Победы</label>
+              <input type="number" id="g-wins" value="18" min="0" max="60">
+            </div>
+            <div class="field">
+              <label>Игры на ноль</label>
+              <input type="number" id="g-shutouts" value="2" min="0" max="20">
+            </div>
+          </div>
+
+          <div class="section-label">Качество игры</div>
+          <div class="fields-row fields-3">
+            <div class="field">
+              <label>SV% (процент отражённых)</label>
+              <input type="number" id="g-svpct" value="0.910" min="0.870" max="0.950" step="0.001">
+            </div>
+            <div class="field">
+              <label>GAA (пропущено / игру)</label>
+              <input type="number" id="g-gaa" value="2.8" min="1.5" max="4.5" step="0.1">
+            </div>
+            <div class="field">
+              <label>Качественные старты</label>
+              <input type="number" id="g-qs" value="18" min="0" max="60">
+            </div>
+          </div>
+
+          <div class="section-label">Биография</div>
+          <div class="fields-row fields-4">
+            <div class="field">
+              <label>Рост (дюймы)</label>
+              <input type="number" id="g-height" value="74" min="60" max="84">
+            </div>
+            <div class="field">
+              <label>Вес (фунты)</label>
+              <input type="number" id="g-weight" value="195" min="150" max="280">
+            </div>
+            <div class="field">
+              <label>Страна</label>
+              <select id="g-country">
+                <option value="CAN">🇨🇦 Канада</option>
+                <option value="USA">🇺🇸 США</option>
+                <option value="RUS">🇷🇺 Россия</option>
+                <option value="SWE">🇸🇪 Швеция</option>
+                <option value="FIN">🇫🇮 Финляндия</option>
+                <option value="CZE">🇨🇿 Чехия</option>
+                <option value="OTHER">Другая</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Год драфта</label>
+              <input type="number" id="g-draft" value="2016" min="1990" max="2025">
+            </div>
+          </div>
+
+          <div class="collapsible-header" onclick="toggleCollapsible(this)">
+            <span>📋 Статистика прошлого сезона (улучшает точность)</span>
+            <span class="collapsible-arrow">▼</span>
+          </div>
+          <div class="collapsible-body">
+            <div class="fields-row fields-3">
+              <div class="field">
+                <label>SV% (прошлый)</label>
+                <input type="number" id="g-prev-sv" value="0.910" min="0.870" max="0.950" step="0.001">
+              </div>
+              <div class="field">
+                <label>Победы (прошлый)</label>
+                <input type="number" id="g-prev-wins" value="0" min="0">
+              </div>
+              <div class="field">
+                <label>Стартов (прошлый)</label>
+                <input type="number" id="g-prev-started" value="0" min="0">
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-predict" onclick="predictForm()">ПРЕДСКАЗАТЬ ЗАРПЛАТУ</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: result -->
+      <div>
+        <div class="card" id="result-card">
+          <div class="card-title">РЕЗУЛЬТАТ</div>
+          <div class="result-empty" id="result-empty">
+            <div class="result-empty-icon">🏒</div>
+            <div>Заполни статистику и нажми<br>«Предсказать зарплату»</div>
+          </div>
+          <div id="result-content" style="display:none">
+            <div class="salary-display">
+              <div class="salary-label">ПРЕДСКАЗАННЫЙ CAP HIT</div>
+              <div class="salary-value" id="res-salary">—</div>
+              <div class="salary-tier" id="res-tier">—</div>
+            </div>
+            <div class="fairness-badge" id="res-fairness" style="display:none"></div>
+            <hr class="divider">
+            <div class="shap-section">
+              <div class="shap-title">ПОЧЕМУ ТАКАЯ ЗАРПЛАТА</div>
+              <div class="shap-chart-wrap"><canvas id="shap-canvas"></canvas></div>
+            </div>
+            <hr class="divider">
+            <div>
+              <div class="similar-title">ИГРОКИ С ПОХОЖЕЙ РЫНОЧНОЙ ЦЕННОСТЬЮ</div>
+              <div class="similar-grid" id="similar-grid"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="whatif-section" id="whatif-section" style="display:none">
+          <div class="whatif-title">🎛️ ЧТО ЕСЛИ...</div>
+          <div class="whatif-sub">Подвигай слайдеры — зарплата пересчитается автоматически</div>
+          <div class="whatif-sliders" id="whatif-sliders"></div>
+          <div class="whatif-result" id="whatif-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEARCH TAB -->
+  <div class="tab-panel" id="tab-search">
+    <div class="search-box">
+      <input class="search-input" id="search-input" type="text"
+        placeholder="Введи фамилию или имя игрока... (например: Pettersson, McDavid, Vasilevskiy)"
+        oninput="onSearchInput(this.value)">
+      <div class="search-dropdown" id="search-dropdown"></div>
+    </div>
+    <div id="search-result-area"></div>
+  </div>
+
+  <!-- BATCH TAB -->
+  <div class="tab-panel" id="tab-batch">
+    <div class="batch-layout">
+      <div>
+        <div class="drop-zone" id="drop-zone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="e=>{e.preventDefault();this.classList.add('drag-over')}"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="onFileDrop(event)">
+          <div class="drop-icon">📂</div>
+          <div class="drop-text">Перетащи CSV или нажми для выбора</div>
+          <div class="drop-sub">Файл должен содержать колонки со статистикой игроков</div>
+          <input type="file" id="file-input" accept=".csv" onchange="onFileSelect(event)">
+          <br>
+          <button class="btn-template" onclick="event.stopPropagation();downloadTemplate()">⬇️ Скачать шаблон CSV</button>
+        </div>
+        <div id="file-preview" style="margin-top:16px; display:none">
+          <div class="card">
+            <div class="card-title" id="file-name">—</div>
+            <div style="font-size:13px; color:var(--text-dim)" id="file-meta"></div>
+            <button class="btn-predict" style="margin-top:16px" onclick="submitBatch()">🚀 ПРЕДСКАЗАТЬ ДЛЯ ВСЕХ</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="batch-results" id="batch-results">
+          <div class="batch-stats">
+            <div class="batch-stat">
+              <div class="batch-stat-val" id="b-count">—</div>
+              <div class="batch-stat-label">Игроков обработано</div>
+            </div>
+            <div class="batch-stat">
+              <div class="batch-stat-val" id="b-avg">—</div>
+              <div class="batch-stat-label">Средний cap hit</div>
+            </div>
+            <div class="batch-stat">
+              <div class="batch-stat-val" id="b-max">—</div>
+              <div class="batch-stat-label">Максимальный cap hit</div>
+            </div>
+          </div>
+          <div class="batch-chart-wrap"><canvas id="batch-chart"></canvas></div>
+          <div class="top5-list" id="top5-list"></div>
+          <button class="btn-download" onclick="downloadResults()">⬇️ Скачать результаты CSV</button>
+          <table class="results-table" id="results-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Игрок</th><th>Прогноз</th><th>Tier</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+let currentType = 'skater';
+let currentTab = 'form';
+let lastResult = null;
+let lastPayload = null;
+let shapChart = null;
+let batchChart = null;
+let batchData = null;
+let searchTimeout = null;
+
+const TIER_CLASS = {
+  'Entry-level': 'tier-entry',
+  'Bottom-6': 'tier-bottom',
+  'Middle-6': 'tier-middle',
+  'Top-6': 'tier-top',
+  'Star': 'tier-star',
+  'Franchise': 'tier-franchise',
+};
+
+const FEATURE_LABELS = {
+  timeOnIcePerGame: 'Время на льду / игру',
+  assists: 'Передачи',
+  age: 'Возраст',
+  age_x_points_per_60: 'Возраст × продуктивность',
+  ppTimeOnIcePerGame: 'Время в большинстве',
+  draft_value: 'Ценность на драфте',
+  points_per_60: 'Очки за 60 мин',
+  goals_per_60: 'Голы за 60 мин',
+  assists_per_60: 'Передачи за 60 мин',
+  goals: 'Голы',
+  points: 'Очки',
+  plusMinus: '+/-',
+  hits_per_60_x_defense: 'Хиты (защитники)',
+  blocked_per_60_x_defense: 'Блоки (защитники)',
+  savePct: 'SV%',
+  win_rate: '% побед',
+  gsaa_proxy: 'GSAA',
+  qualityStart: 'Качественные старты',
+  weightInPounds: 'Вес',
+  size_index: 'Физические данные',
+  takeawaysPer60: 'Отборы шайбы / 60 мин',
+};
+
+// API check
+async function checkApi() {
+  try {
+    const r = await fetch(`${API}/health`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      document.getElementById('api-dot').classList.remove('offline');
+      document.getElementById('api-label').textContent = 'API online';
+    } else throw new Error();
+  } catch {
+    document.getElementById('api-dot').classList.add('offline');
+    document.getElementById('api-label').textContent = 'API offline';
+  }
+}
+checkApi();
+setInterval(checkApi, 15000);
+
+// Navigation
+function setType(type) {
+    const METRICS = {
+  skater: {
+    model: 'LightGBM + SelectFromModel (46 признаков)',
+    mae: '$1.247M', mape: '31.5%', r2: '0.667',
+  },
+  goalie: {
+    model: 'CatBoost (дефолтные параметры)',
+    mae: '$1.251M', mape: '43.7%', r2: '0.529',
+  },
+};
+
+const m = METRICS[type];
+document.getElementById('model-name').textContent = m.model;
+document.getElementById('m-mae').textContent = m.mae;
+document.getElementById('m-mape').textContent = m.mape;
+document.getElementById('m-r2').textContent = m.r2;
+  currentType = type;
+  document.querySelectorAll('.type-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0 && type === 'skater') || (i === 1 && type === 'goalie'));
+  });
+  document.getElementById('skater-form').style.display = type === 'skater' ? '' : 'none';
+  document.getElementById('goalie-form').style.display = type === 'goalie' ? '' : 'none';
+  resetResult();
+  if (currentTab === 'search') {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-result-area').innerHTML = '';
+    document.getElementById('search-dropdown').classList.remove('show');
+  }
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.nav-tab')[['form','search','batch'].indexOf(tab)].classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+function toggleCollapsible(header) {
+  const arrow = header.querySelector('.collapsible-arrow');
+  const body = header.nextElementSibling;
+  arrow.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// Form predict
+function buildSkaterPayload() {
+  const prevGoals = +document.getElementById('f-prev-goals').value;
+  const prevAssists = +document.getElementById('f-prev-assists').value;
+  const prevPoints = +document.getElementById('f-prev-points').value;
+  const prevToi = +document.getElementById('f-prev-toi').value;
+  const prevHits = +document.getElementById('f-prev-hits').value;
+
+  const hasPrev = prevGoals || prevAssists || prevPoints || prevToi || prevHits;
+  const prev = hasPrev ? {
+    goals: prevGoals, assists: prevAssists, points: prevPoints,
+    timeOnIcePerGame: prevToi * 60, hits: prevHits,
+  } : null;
+
+  return {
+    positionCode: document.getElementById('f-position').value,
+    season_year: 2026,
+    gamesPlayed: +document.getElementById('f-games').value,
+    goals: +document.getElementById('f-goals').value,
+    assists: +document.getElementById('f-assists').value,
+    points: +document.getElementById('f-points').value,
+    plusMinus: +document.getElementById('f-pm').value,
+    penaltyMinutes: +document.getElementById('f-pim').value,
+    timeOnIcePerGame: +document.getElementById('f-toi').value * 60,
+    ppGoals: +document.getElementById('f-ppgoals').value,
+    ppPoints: +document.getElementById('f-pppoints').value,
+    ppAssists: +document.getElementById('f-pppoints').value - +document.getElementById('f-ppgoals').value,
+    ppTimeOnIcePerGame: +document.getElementById('f-pptoi').value * 60,
+    hits: +document.getElementById('f-hits').value,
+    blockedShots: +document.getElementById('f-blocks').value,
+    heightInInches: +document.getElementById('f-height').value,
+    weightInPounds: +document.getElementById('f-weight').value,
+    birthCountry: document.getElementById('f-country').value,
+    draftYear: +document.getElementById('f-draft').value,
+    prev_season: prev,
+  };
+}
+
+function buildGoaliePayload() {
+  const prevSv = +document.getElementById('g-prev-sv').value;
+  const prevWins = +document.getElementById('g-prev-wins').value;
+  const prevStarted = +document.getElementById('g-prev-started').value;
+  const hasPrev = prevWins || prevStarted;
+  const prev = hasPrev ? { savePct: prevSv, wins: prevWins, gamesStarted: prevStarted } : null;
+
+  const svPct = +document.getElementById('g-svpct').value;
+  const gaa = +document.getElementById('g-gaa').value;
+  const games = +document.getElementById('g-games').value;
+  const shotsAgainst = svPct < 1 ? Math.round(games * gaa / (1 - svPct)) : 0;
+
+  return {
+    season_year: 2026,
+    gamesPlayed: games,
+    gamesStarted: +document.getElementById('g-started').value,
+    wins: +document.getElementById('g-wins').value,
+    shutouts: +document.getElementById('g-shutouts').value,
+    savePct: svPct,
+    goalsAgainstAverage: gaa,
+    qualityStart: +document.getElementById('g-qs').value,
+    shotsAgainst,
+    heightInInches: +document.getElementById('g-height').value,
+    weightInPounds: +document.getElementById('g-weight').value,
+    birthCountry: document.getElementById('g-country').value,
+    draftYear: +document.getElementById('g-draft').value,
+    prev_season: prev,
+  };
+}
+
+async function predictForm() {
+  const payload = currentType === 'skater' ? buildSkaterPayload() : buildGoaliePayload();
+  lastPayload = payload;
+  await predict(payload, currentType, null);
+}
+
+async function predict(payload, type, actualCapHit) {
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-content').style.display = 'none';
+  document.getElementById('result-empty').innerHTML = '<div class="loader-wrap"><div class="spinner"></div> Считаем...</div>';
+  document.getElementById('result-empty').style.display = 'flex';
+
+  try {
+    const r = await fetch(`${API}/predict/${type}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    lastResult = data;
+    renderResult(data, actualCapHit);
+  } catch (e) {
+    document.getElementById('result-empty').innerHTML = `<div class="result-empty-icon">⚠️</div><div>Ошибка: ${e.message}</div>`;
+  }
+}
+
+function resetResult() {
+  lastResult = null;
+  lastPayload = null;
+  document.getElementById('result-empty').innerHTML = '<div class="result-empty-icon">🏒</div><div>Заполни статистику и нажми<br>«Предсказать зарплату»</div>';
+  document.getElementById('result-empty').style.display = 'flex';
+  document.getElementById('result-content').style.display = 'none';
+  document.getElementById('whatif-section').style.display = 'none';
+}
+
+function renderResult(data, actualCapHit) {
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-content').style.display = 'block';
+
+  document.getElementById('res-salary').textContent = data.predicted_cap_hit_m;
+  const tierEl = document.getElementById('res-tier');
+  tierEl.textContent = `${data.salary_tier} · ${data.tier_range}`;
+  tierEl.className = `salary-tier ${TIER_CLASS[data.salary_tier] || ''}`;
+
+  // fairness badge
+  const fb = document.getElementById('res-fairness');
+  if (actualCapHit != null) {
+    const diff = (data.predicted_cap_hit - actualCapHit) / actualCapHit * 100;
+    let label, desc, cls, icon;
+    if (diff > 20) {
+      label = 'Переоценён рынком'; icon = '📈';
+      desc = `Модель оценивает на ${Math.abs(diff).toFixed(0)}% выше реального контракта`;
+      cls = 'fairness-badge' ; fb.style.background='#FEF3C720'; fb.style.border='1px solid #F59E0B40'; fb.style.color='#FBB040';
+    } else if (diff < -20) {
+      label = 'Недооценён рынком'; icon = '📉';
+      desc = `Модель оценивает на ${Math.abs(diff).toFixed(0)}% ниже реального контракта`;
+      cls = 'fairness-badge'; fb.style.background='#EFF6FF20'; fb.style.border='1px solid #3B82F640'; fb.style.color='#60A5FA';
+    } else {
+      label = 'Рыночная цена'; icon = '✅';
+      desc = `Отклонение ${diff > 0 ? '+' : ''}${diff.toFixed(0)}% — модель попала в диапазон`;
+      cls = 'fairness-badge'; fb.style.background='#F0FDF420'; fb.style.border='1px solid #22D3A040'; fb.style.color='#22D3A0';
+    }
+    const actualM = `$${(actualCapHit/1e6).toFixed(2)}M`;
+    fb.innerHTML = `
+      <div class="fb-title">${icon} ${label}</div>
+      <div>${desc}</div>
+      <div class="fb-vals">
+        <span>Реально: <b>${actualM}</b></span>
+        <span>Прогноз: <b>${data.predicted_cap_hit_m}</b></span>
+      </div>`;
+    fb.style.display = 'block';
+  } else {
+    fb.style.display = 'none';
+  }
+
+  // SHAP chart
+  setTimeout(() => renderShap(data.shap_top5), 50);
+
+  // Similar players
+  const grid = document.getElementById('similar-grid');
+  grid.innerHTML = data.similar_players.map(p => `
+    <div class="similar-card">
+      <div class="similar-name">${p.name}</div>
+      <div class="similar-pos">${p.position} · ${p.team}</div>
+      <div class="similar-salary">${p.cap_hit_m}</div>
+      <div class="similar-stat">${p.key_stat}: ${p.key_stat_value}</div>
+    </div>`).join('');
+
+  // What if
+  renderWhatIf(data.shap_top5, lastPayload);
+}
+
+function renderShap(shap_top5) {
+  if (shapChart) { shapChart.destroy(); shapChart = null; }
+  const canvas = document.getElementById('shap-canvas');
+  if (!canvas) return;
+
+  const labels = shap_top5.map(f => FEATURE_LABELS[f.feature] || f.feature);
+  const vals = shap_top5.map(f => f.shap_value);
+  const colors = vals.map(v => v > 0 ? '#22D3A0' : '#F05252');
+
+  shapChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: vals, backgroundColor: colors, borderRadius: 4 }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { color: '#1E2740' },
+          ticks: { color: '#6B7A9E', font: { size: 11 } },
+        },
+        y: {
+          ticks: { color: '#9BA8C8', font: { size: 11 } },
+          grid: { display: false },
+        },
+      },
+    },
+  });
+}
+
+function renderWhatIf(shap_top5, payload) {
+  if (!payload) return;
+  const section = document.getElementById('whatif-section');
+  section.style.display = 'block';
+
+  const CONFIGS = {
+    timeOnIcePerGame: { label: 'Время на льду / игру (мин)', min: 5, max: 30, step: 0.5,
+      get: p => p.timeOnIcePerGame / 60, set: (p, v) => ({ ...p, timeOnIcePerGame: v * 60 }) },
+    assists: { label: 'Передачи', min: 0, max: 80, step: 1,
+      get: p => p.assists, set: (p, v) => ({ ...p, assists: +v }) },
+    goals: { label: 'Голы', min: 0, max: 60, step: 1,
+      get: p => p.goals, set: (p, v) => ({ ...p, goals: +v }) },
+    ppTimeOnIcePerGame: { label: 'Время в большинстве (мин)', min: 0, max: 8, step: 0.1,
+      get: p => (p.ppTimeOnIcePerGame || 0) / 60, set: (p, v) => ({ ...p, ppTimeOnIcePerGame: v * 60 }) },
+    hits: { label: 'Хиты', min: 0, max: 300, step: 5,
+      get: p => p.hits || 0, set: (p, v) => ({ ...p, hits: +v }) },
+    savePct: { label: 'SV%', min: 0.870, max: 0.950, step: 0.001,
+      get: p => p.savePct || 0.910, set: (p, v) => ({ ...p, savePct: +v }) },
+    wins: { label: 'Победы', min: 0, max: 50, step: 1,
+      get: p => p.wins || 0, set: (p, v) => ({ ...p, wins: +v }) },
+  };
+
+  const topFeats = shap_top5.map(f => f.feature).filter(f => CONFIGS[f]).slice(0, 3);
+  if (!topFeats.length) { section.style.display = 'none'; return; }
+
+  const container = document.getElementById('whatif-sliders');
+  container.innerHTML = topFeats.map(feat => {
+    const cfg = CONFIGS[feat];
+    const val = cfg.get(payload);
+    return `
+      <div class="slider-field">
+        <div class="slider-label">${cfg.label}</div>
+        <div class="slider-val" id="wi-val-${feat}">${(+val).toFixed(cfg.step < 1 ? 3 : 0)}</div>
+        <input type="range" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}" value="${val}"
+          oninput="onWiSlider('${feat}', this.value)"
+          id="wi-slider-${feat}">
+      </div>`;
+  }).join('');
+}
+
+let wiDebounce = null;
+async function onWiSlider(feat, val) {
+  const CONFIGS = {
+    timeOnIcePerGame: { decimals: 1, set: (p, v) => ({ ...p, timeOnIcePerGame: v * 60 }) },
+    assists: { decimals: 0, set: (p, v) => ({ ...p, assists: +v }) },
+    goals: { decimals: 0, set: (p, v) => ({ ...p, goals: +v }) },
+    ppTimeOnIcePerGame: { decimals: 1, set: (p, v) => ({ ...p, ppTimeOnIcePerGame: v * 60 }) },
+    hits: { decimals: 0, set: (p, v) => ({ ...p, hits: +v }) },
+    savePct: { decimals: 3, set: (p, v) => ({ ...p, savePct: +v }) },
+    wins: { decimals: 0, set: (p, v) => ({ ...p, wins: +v }) },
+  };
+  const cfg = CONFIGS[feat];
+  document.getElementById(`wi-val-${feat}`).textContent = (+val).toFixed(cfg.decimals);
+
+  clearTimeout(wiDebounce);
+  wiDebounce = setTimeout(async () => {
+    let payload = { ...lastPayload };
+    document.querySelectorAll('[id^="wi-slider-"]').forEach(slider => {
+      const f = slider.id.replace('wi-slider-', '');
+      if (CONFIGS[f]) payload = CONFIGS[f].set(payload, slider.value);
+    });
+
+    try {
+      const r = await fetch(`${API}/predict/${currentType}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      const base = lastResult.predicted_cap_hit;
+      const newVal = data.predicted_cap_hit;
+      const delta = newVal - base;
+      const deltaPct = delta / base * 100;
+
+      const res = document.getElementById('whatif-result');
+      res.className = 'whatif-result show';
+      res.innerHTML = `
+        <div class="wi-metric">
+          <div class="wi-metric-label">Базовый прогноз</div>
+          <div class="wi-metric-val" style="color:var(--text-dim)">$${(base/1e6).toFixed(2)}M</div>
+        </div>
+        <div class="wi-metric">
+          <div class="wi-metric-label">Новый прогноз</div>
+          <div class="wi-metric-val" style="color:var(--ice)">$${(newVal/1e6).toFixed(2)}M</div>
+          <div class="wi-delta ${delta >= 0 ? 'up' : 'down'}">${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)}%</div>
+        </div>
+        <div class="wi-metric">
+          <div class="wi-metric-label">Изменение</div>
+          <div class="wi-metric-val" style="color:${delta >= 0 ? 'var(--green)' : 'var(--red)'}">
+            ${delta >= 0 ? '+' : ''}$${(Math.abs(delta)/1e6).toFixed(2)}M
+          </div>
+        </div>`;
+    } catch {}
+  }, 300);
+}
+
+// SEARCH
+async function onSearchInput(val) {
+  clearTimeout(searchTimeout);
+  const dd = document.getElementById('search-dropdown');
+  if (val.length < 2) { dd.classList.remove('show'); return; }
+
+  searchTimeout = setTimeout(async () => {
+    try {
+      const r = await fetch(`${API}/players/search?name=${encodeURIComponent(val)}&type=${currentType}`);
+      if (!r.ok) { dd.classList.remove('show'); return; }
+      const data = await r.json();
+      dd.innerHTML = data.map(p => `
+        <div class="search-item" onclick="selectPlayer(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+          <div>
+            <div class="search-item-name">${p.name}</div>
+            <div class="search-item-meta">${p.position} · ${p.team} · ${p.season_year-1}–${String(p.season_year).slice(-2)}</div>
+          </div>
+          <div class="search-item-salary">${p.cap_hit_m}</div>
+        </div>`).join('');
+      dd.classList.add('show');
+      document.body.style.paddingBottom = '300px';
+    } catch {}
+  }, 300);
+}
+
+async function selectPlayer(player) {
+  document.getElementById('search-dropdown').classList.remove('show');
+  document.body.style.paddingBottom = '';
+  document.getElementById('search-input').value = player.name;
+
+  const stats = player.stats;
+  let payload;
+
+  if (currentType === 'skater') {
+    payload = {
+      positionCode: player.position,
+      season_year: player.season_year,
+      gamesPlayed: stats.gamesPlayed || 60,
+      goals: stats.goals || 0,
+      assists: stats.assists || 0,
+      points: stats.points || 0,
+      plusMinus: stats.plusMinus || 0,
+      timeOnIcePerGame: stats.timeOnIcePerGame || 900,
+      heightInInches: 73, weightInPounds: 200,
+    };
+  } else {
+    payload = {
+      season_year: player.season_year,
+      gamesPlayed: stats.gamesPlayed || 40,
+      gamesStarted: stats.gamesStarted || 35,
+      wins: stats.wins || 0,
+      savePct: stats.savePct || 0.910,
+      goalsAgainstAverage: stats.goalsAgainstAverage || 2.8,
+      shotsAgainst: 1100,
+      heightInInches: 74, weightInPounds: 195,
+    };
+  }
+
+  const area = document.getElementById('search-result-area');
+  area.innerHTML = `
+    <div class="search-result-grid">
+      <div class="player-profile">
+        <div class="player-name">${player.name}</div>
+        <div class="player-meta">${player.position} · ${player.team} · Сезон ${player.season_year-1}–${String(player.season_year).slice(-2)}</div>
+        <div class="player-real-salary">💰 Реальный cap hit: ${player.cap_hit_m}</div>
+        <div class="stat-grid">
+          ${currentType === 'skater' ? `
+            <div class="stat-item"><div class="stat-val">${stats.goals ?? '—'}</div><div class="stat-key">Голы</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.assists ?? '—'}</div><div class="stat-key">Передачи</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.points ?? '—'}</div><div class="stat-key">Очки</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.plusMinus ?? '—'}</div><div class="stat-key">+/-</div></div>
+            <div class="stat-item"><div class="stat-val">${((stats.timeOnIcePerGame||0)/60).toFixed(1)}</div><div class="stat-key">TOI мин</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.gamesPlayed ?? '—'}</div><div class="stat-key">Матчей</div></div>
+          ` : `
+            <div class="stat-item"><div class="stat-val">${stats.wins ?? '—'}</div><div class="stat-key">Победы</div></div>
+            <div class="stat-item"><div class="stat-val">${(stats.savePct||0).toFixed(3)}</div><div class="stat-key">SV%</div></div>
+            <div class="stat-item"><div class="stat-val">${(stats.goalsAgainstAverage||0).toFixed(2)}</div><div class="stat-key">GAA</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.gamesStarted ?? '—'}</div><div class="stat-key">Стартов</div></div>
+            <div class="stat-item"><div class="stat-val">${stats.gamesPlayed ?? '—'}</div><div class="stat-key">Матчей</div></div>
+          `}
+        </div>
+      </div>
+      <div class="card" id="result-card">
+        <div class="card-title">РЕЗУЛЬТАТ</div>
+        <div class="result-empty" id="result-empty" style="display:flex">
+          <div class="loader-wrap"><div class="spinner"></div> Считаем...</div>
+        </div>
+        <div id="result-content" style="display:none">
+          <div class="salary-display">
+            <div class="salary-label">ПРЕДСКАЗАННЫЙ CAP HIT</div>
+            <div class="salary-value" id="res-salary">—</div>
+            <div class="salary-tier" id="res-tier">—</div>
+          </div>
+          <div class="fairness-badge" id="res-fairness" style="display:none"></div>
+          <hr class="divider">
+          <div class="shap-section">
+            <div class="shap-title">ПОЧЕМУ ТАКАЯ ЗАРПЛАТА</div>
+            <div class="shap-chart-wrap"><canvas id="shap-canvas"></canvas></div>
+          </div>
+          <hr class="divider">
+          <div>
+            <div class="similar-title">ИГРОКИ С ПОХОЖЕЙ РЫНОЧНОЙ ЦЕННОСТЬЮ</div>
+            <div class="similar-grid" id="similar-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  lastPayload = payload;
+  lastPayload = payload;
+try {
+  const r = await fetch(`/predict/${currentType}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const data = await r.json();
+  lastResult = data;
+
+  const area = document.getElementById('search-result-area');
+  area.querySelector('#result-empty').style.display = 'none';
+  const content = area.querySelector('#result-content');
+  content.style.display = 'block';
+
+  content.querySelector('#res-salary').textContent = data.predicted_cap_hit_m;
+  const tierEl = content.querySelector('#res-tier');
+  tierEl.textContent = `${data.salary_tier} · ${data.tier_range}`;
+  tierEl.className = `salary-tier ${TIER_CLASS[data.salary_tier] || ''}`;
+
+  const fb = content.querySelector('#res-fairness');
+  const actual = player.cap_hit;
+  const diff = (data.predicted_cap_hit - actual) / actual * 100;
+  let icon, label, desc;
+  if (diff > 20) {
+    icon='📈'; label='Переоценён рынком';
+    desc=`Модель оценивает на ${Math.abs(diff).toFixed(0)}% выше реального контракта`;
+    fb.style.cssText='display:block;background:#FEF3C720;border:1px solid #F59E0B40;color:#FBB040;border-radius:12px;padding:12px 16px;margin-bottom:16px';
+  } else if (diff < -20) {
+    icon='📉'; label='Недооценён рынком';
+    desc=`Модель оценивает на ${Math.abs(diff).toFixed(0)}% ниже реального контракта`;
+    fb.style.cssText='display:block;background:#EFF6FF20;border:1px solid #3B82F640;color:#60A5FA;border-radius:12px;padding:12px 16px;margin-bottom:16px';
+  } else {
+    icon='✅'; label='Рыночная цена';
+    desc=`Отклонение ${diff>0?'+':''}${diff.toFixed(0)}% — модель попала в диапазон`;
+    fb.style.cssText='display:block;background:#F0FDF420;border:1px solid #22D3A040;color:#22D3A0;border-radius:12px;padding:12px 16px;margin-bottom:16px';
+  }
+  fb.innerHTML = `
+    <div style="font-weight:600;font-size:14px;margin-bottom:4px">${icon} ${label}</div>
+    <div>${desc}</div>
+    <div style="display:flex;gap:20px;margin-top:8px;font-size:12px">
+      <span>Реально: <b>$${(actual/1e6).toFixed(2)}M</b></span>
+      <span>Прогноз: <b>${data.predicted_cap_hit_m}</b></span>
+    </div>`;
+
+  setTimeout(() => {
+    const canvas = content.querySelector('#shap-canvas');
+    if (shapChart) { shapChart.destroy(); shapChart = null; }
+    if (canvas) {
+      const labels = data.shap_top5.map(f => FEATURE_LABELS[f.feature] || f.feature);
+      const vals = data.shap_top5.map(f => f.shap_value);
+      shapChart = new Chart(canvas, {
+        type: 'bar',
+        data: { labels, datasets: [{ data: vals, backgroundColor: vals.map(v => v > 0 ? '#22D3A0' : '#F05252'), borderRadius: 4 }] },
+        options: {
+          indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#1E2740' }, ticks: { color: '#6B7A9E', font: { size: 11 } } },
+            y: { ticks: { color: '#9BA8C8', font: { size: 11 } }, grid: { display: false } },
+          },
+        },
+      });
+    }
+  }, 50);
+
+  const simGrid = content.querySelector('#similar-grid');
+  simGrid.innerHTML = data.similar_players.map(p => `
+    <div class="similar-card">
+      <div class="similar-name">${p.name}</div>
+      <div class="similar-pos">${p.position} · ${p.team}</div>
+      <div class="similar-salary">${p.cap_hit_m}</div>
+      <div class="similar-stat">${p.key_stat}: ${p.key_stat_value}</div>
+    </div>`).join('');
+
+} catch(e) {
+  const area = document.getElementById('search-result-area');
+  area.querySelector('#result-empty').innerHTML = `<div class="result-empty-icon">⚠️</div><div>${e.message}</div>`;
+}
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-box')) {
+    document.getElementById('search-dropdown').classList.remove('show');
+    document.body.style.paddingBottom = '';
+  }
+});
+
+// BATCH
+function onFileDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+let batchFile = null;
+function processFile(file) {
+  batchFile = file;
+  const preview = document.getElementById('file-preview');
+  preview.style.display = 'block';
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-meta').textContent = `${(file.size/1024).toFixed(1)} KB`;
+}
+
+async function submitBatch() {
+  if (!batchFile) return;
+  const formData = new FormData();
+  formData.append('file', batchFile);
+
+  document.getElementById('batch-results').classList.remove('show');
+  showToast('Обрабатываем файл...');
+
+  try {
+    const r = await fetch(`${API}/predict/batch`, { method: 'POST', body: formData });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    batchData = data;
+    renderBatch(data);
+  } catch (e) {
+    showToast(`Ошибка: ${e.message}`);
+  }
+}
+
+function renderBatch(data) {
+  const preds = data.predictions.filter(p => p.predicted_cap_hit > 0);
+  const avg = preds.reduce((s, p) => s + p.predicted_cap_hit, 0) / preds.length;
+  const max = Math.max(...preds.map(p => p.predicted_cap_hit));
+
+  document.getElementById('b-count').textContent = data.count;
+  document.getElementById('b-avg').textContent = `$${(avg/1e6).toFixed(2)}M`;
+  document.getElementById('b-max').textContent = `$${(max/1e6).toFixed(2)}M`;
+
+  // tier chart
+  if (batchChart) batchChart.destroy();
+  const tierOrder = ['Entry-level','Bottom-6','Middle-6','Top-6','Star','Franchise'];
+  const tierColors = ['#6B7280','#3B82F6','#22D3A0','#F0B429','#F05252','#8B5CF6'];
+  const tierVals = tierOrder.map(t => data.tier_distribution[t] || 0);
+
+  batchChart = new Chart(document.getElementById('batch-chart'), {
+    type: 'bar',
+    data: {
+      labels: tierOrder,
+      datasets: [{ data: tierVals, backgroundColor: tierColors, borderRadius: 6 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#9BA8C8', font: { size: 11 } }, grid: { color: '#1E2740' } },
+        y: { ticks: { color: '#6B7A9E' }, grid: { color: '#1E2740' } },
+      },
+    },
+  });
+
+  // top 5
+  const top5 = [...preds].sort((a,b) => b.predicted_cap_hit - a.predicted_cap_hit).slice(0, 5);
+  document.getElementById('top5-list').innerHTML = top5.map((p, i) => `
+    <div class="top5-item">
+      <div class="top5-rank">${i+1}</div>
+      <div class="top5-name">${p.name}</div>
+      <span class="top5-tier ${TIER_CLASS[p.salary_tier] || ''}">${p.salary_tier}</span>
+      <div class="top5-salary">${p.predicted_cap_hit_m}</div>
+    </div>`).join('');
+
+  // table
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = preds.sort((a,b) => b.predicted_cap_hit - a.predicted_cap_hit).map((p, i) => `
+    <tr>
+      <td style="color:var(--text-dim)">${i+1}</td>
+      <td>${p.name}</td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:16px;color:var(--green)">${p.predicted_cap_hit_m}</td>
+      <td><span class="top5-tier ${TIER_CLASS[p.salary_tier] || ''}" style="padding:2px 10px;border-radius:10px">${p.salary_tier}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('batch-results').classList.add('show');
+}
+
+function downloadResults() {
+  if (!batchData) return;
+  const rows = [['Игрок','Прогноз','Tier','cap_hit_usd']];
+  batchData.predictions.forEach(p => rows.push([p.name, p.predicted_cap_hit_m, p.salary_tier, p.predicted_cap_hit]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'nhl_predictions.csv';
+  a.click();
+}
+
+function downloadTemplate() {
+  const type = currentType;
+  let cols, row;
+  if (type === 'skater') {
+    cols = ['skaterFullName','gamesPlayed','goals','assists','points','plusMinus','penaltyMinutes','shots','timeOnIcePerGame','ppGoals','ppPoints','ppTimeOnIcePerGame','hits','blockedShots','heightInInches','weightInPounds','birthCountry','draftYear'];
+    row = ['John Doe','60','15','25','40','0','20','120','900','3','8','90','50','30','73','200','CAN','2018'];
+  } else {
+    cols = ['goalieFullName','gamesPlayed','gamesStarted','wins','savePct','goalsAgainstAverage','shotsAgainst','shutouts','qualityStart','heightInInches','weightInPounds','birthCountry','draftYear'];
+    row = ['John Goalie','40','35','18','0.910','2.8','1100','2','18','74','195','CAN','2016'];
+  }
+  const csv = [cols.join(','), row.join(',')].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `nhl_${type}s_template.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

@@ -5,6 +5,10 @@
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).parent.parent
+sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "src"))  # ← добавить эту строку
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -183,27 +187,24 @@ class NHLPredictor:
 
         df = engineer_one_skater(raw, prev_season=prev)
 
-        x_all = self.skaters_full.iloc[:1]  # берём структуру колонок
-        exclude = [
-            "playerId", "skaterFullName", "goalieFullName", "lastName",
-            "season", "seasonId", "season_year", "teamAbbrevs",
-            "positionCode", "shootsCatches", "birthCity", "birthCountry",
-            "name_key", "cap_hit", "log_cap_hit",
-            "player_name_cw", "team_cw", "position_cw",
-            "evPoints", "ppTimeOnIce", "ppTimeOnIcePctPerGame",
-            "missedShotWideOfNet", "ppIndividualSatFor",
-            "timeOnIce", "completeGames", "gamesPlayed",
-            "saves", "regulationWins", "country_group",
-            "cap_pct", "cap_pct_lag1", "salary_cap",
-            "cap_hit_lag1", "cap_hit_delta",
+        # загружаем полный список фич из тренировочного датасета
+        train_feature_cols = [
+            c for c in self.skaters_full.select_dtypes(include=[np.number]).columns
+            if c not in [
+                "playerId", "season", "seasonId", "season_year",
+                "cap_hit", "log_cap_hit", "evPoints", "ppTimeOnIce",
+                "ppTimeOnIcePctPerGame", "missedShotWideOfNet",
+                "ppIndividualSatFor", "timeOnIce", "completeGames",
+                "gamesPlayed", "saves", "regulationWins",
+                "cap_pct", "cap_pct_lag1", "salary_cap",
+                "cap_hit_lag1", "cap_hit_delta",
+            ]
         ]
-        feature_cols = self.skater_selected_cols
 
-        # выравниваем колонки: добавляем отсутствующие с нулями
-        for col in feature_cols:
+        for col in train_feature_cols:
             if col not in df.columns:
                 df[col] = 0
-        x = df[feature_cols]
+        x = df[train_feature_cols]
 
         x_sel = pd.DataFrame(
             self.skater_selector.transform(x),

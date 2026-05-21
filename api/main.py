@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.schemas import (
     SkaterInput, GoalieInput,
@@ -29,7 +30,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.get("/health")
 def health():
@@ -143,3 +143,5 @@ async def predict_batch(file: UploadFile = File(...)):
         predictions=predictions,
         tier_distribution=tier_dist,
     )
+
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
