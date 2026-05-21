@@ -3,11 +3,13 @@ Pydantic-схемы для FastAPI.
 """
 
 from typing import Literal, Optional
+
 from pydantic import BaseModel, Field
 
 
 class PrevSeasonSkater(BaseModel):
     """Статистика прошлого сезона для лаговых фич. Всё опционально."""
+
     goals: Optional[float] = None
     assists: Optional[float] = None
     points: Optional[float] = None

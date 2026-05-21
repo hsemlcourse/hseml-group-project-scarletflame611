@@ -62,9 +62,7 @@ def make_driver() -> webdriver.Edge:
     )
     driver.set_page_load_timeout(180)
     driver.set_script_timeout(60)
-    driver.execute_script(
-        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    )
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
     return driver
 
 
@@ -91,7 +89,9 @@ def _nhl_get(endpoint: str, season: str, sort: str, retries: int = 5) -> pd.Data
             df["season"] = season
             return df
         except requests.exceptions.Timeout:
-            log.warning(f"  NHL API таймаут (попытка {attempt}/{retries}), ждём {attempt * 10} сек...")
+            log.warning(
+                f"  NHL API таймаут (попытка {attempt}/{retries}), ждём {attempt * 10} сек..."
+            )
             time.sleep(attempt * 10)
         except requests.exceptions.ConnectionError as e:
             log.warning(f"  NHL API connection error (попытка {attempt}/{retries}): {e}")
@@ -220,7 +220,9 @@ def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
 
         try:
             WebDriverWait(driver, 60).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "ul.list-group li.list-group-item"))
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "ul.list-group li.list-group-item")
+                )
             )
         except Exception:
             log.warning("  Spotrac: таймаут ожидания элементов, пробуем всё равно")
@@ -256,13 +258,15 @@ def fetch_spotrac_salaries(driver: webdriver.Edge, year: int) -> pd.DataFrame:
                 except ValueError:
                     cap_hit = None
 
-            rows.append({
-                "player_name_cw": name,
-                "team_cw": team,
-                "position_cw": pos,
-                "cap_hit": cap_hit,
-                "season_year": year,
-            })
+            rows.append(
+                {
+                    "player_name_cw": name,
+                    "team_cw": team,
+                    "position_cw": pos,
+                    "cap_hit": cap_hit,
+                    "season_year": year,
+                }
+            )
 
         df = pd.DataFrame(rows)
         log.info(f"  → {len(df)} игроков")

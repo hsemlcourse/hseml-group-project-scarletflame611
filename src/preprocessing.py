@@ -42,6 +42,7 @@ id_cols_goalies = ["playerId", "goalieFullName", "lastName", "season", "seasonId
 
 # общие утилиты
 
+
 def setup_dirs():
     for d in [processed_dir, features_dir]:
         d.mkdir(parents=True, exist_ok=True)
@@ -70,15 +71,10 @@ def make_target_shift(df: pd.DataFrame) -> pd.DataFrame:
 
     df["cap_hit_next"] = df.groupby("playerId")["cap_hit"].shift(-1)
 
-    df["salary_changed"] = (
-                                   (df["cap_hit_next"] - df["cap_hit"]).abs() / df["cap_hit"]
-                           ) > 0.05
+    df["salary_changed"] = ((df["cap_hit_next"] - df["cap_hit"]).abs() / df["cap_hit"]) > 0.05
 
     # убрали ограничение по году, оставляем всех у кого есть N+1
-    df = df[
-        df["cap_hit_next"].notna() &
-        df["salary_changed"]
-        ].copy()
+    df = df[df["cap_hit_next"].notna() & df["salary_changed"]].copy()
 
     df[target_col] = df["cap_hit_next"]
     df[log_target_col] = np.log1p(df["cap_hit_next"])
@@ -108,13 +104,17 @@ def report_missing(df: pd.DataFrame, label: str):
 
 # очистка скейтеров
 
+
 def clean_skaters(df: pd.DataFrame) -> pd.DataFrame:
     initial = len(df)
 
     # удаляем строки без таргета
     df = df.dropna(subset=[target_col])
-    log.info("Удалено %d строк без cap_hit (%.1f%%)",
-             initial - len(df), (initial - len(df)) / initial * 100)
+    log.info(
+        "Удалено %d строк без cap_hit (%.1f%%)",
+        initial - len(df),
+        (initial - len(df)) / initial * 100,
+    )
 
     # убираем аномально низкие значения
     before_threshold = len(df)
@@ -157,6 +157,7 @@ def clean_skaters(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # feature engineering скейтеров
+
 
 def engineer_skater_features(df: pd.DataFrame) -> pd.DataFrame:
     # возраст: большинство игроков задрафтованы в 18 лет,
@@ -205,11 +206,18 @@ def add_lag_features_skaters(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(["playerId", "season_year"]).copy()
 
     lag_cols = [
-        "goals", "assists", "points",
-        "timeOnIcePerGame", "points_per_60",
-        "goals_per_60", "assists_per_60",
-        "hits", "blockedShots", "plusMinus",
-        "ppPoints", "cap_hit",
+        "goals",
+        "assists",
+        "points",
+        "timeOnIcePerGame",
+        "points_per_60",
+        "goals_per_60",
+        "assists_per_60",
+        "hits",
+        "blockedShots",
+        "plusMinus",
+        "ppPoints",
+        "cap_hit",
     ]
 
     for col in lag_cols:
@@ -230,9 +238,14 @@ def add_lag_features_goalies(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(["playerId", "season_year"]).copy()
 
     lag_cols = [
-        "savePct", "goalsAgainstAverage",
-        "wins", "shutouts", "gamesStarted",
-        "gsaa_proxy", "win_rate", "cap_hit",
+        "savePct",
+        "goalsAgainstAverage",
+        "wins",
+        "shutouts",
+        "gamesStarted",
+        "gsaa_proxy",
+        "win_rate",
+        "cap_hit",
     ]
 
     for col in lag_cols:
@@ -287,9 +300,12 @@ def add_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
     df["plusminus_x_defense"] = df["plusMinus"] * is_defense
 
     created = [
-        "age_squared", "age_x_points_per_60",
-        "points_per_60_x_forward", "goals_per_60_x_forward",
-        "hits_per_60_x_defense", "blocked_per_60_x_defense",
+        "age_squared",
+        "age_x_points_per_60",
+        "points_per_60_x_forward",
+        "goals_per_60_x_forward",
+        "hits_per_60_x_defense",
+        "blocked_per_60_x_defense",
         "plusminus_x_defense",
     ]
     log.info("Interaction features: добавлено %d колонок", len(created))
@@ -322,12 +338,16 @@ def prepare_skaters() -> dict[str, pd.DataFrame]:
 
 # очистка вратарей
 
+
 def clean_goalies(df: pd.DataFrame) -> pd.DataFrame:
     initial = len(df)
 
     df = df.dropna(subset=[target_col])
-    log.info("Удалено %d вратарей без cap_hit (%.1f%%)",
-             initial - len(df), (initial - len(df)) / initial * 100)
+    log.info(
+        "Удалено %d вратарей без cap_hit (%.1f%%)",
+        initial - len(df),
+        (initial - len(df)) / initial * 100,
+    )
 
     df = df[df["gamesPlayed"] >= min_games_played]
     log.info("После фильтра по играм: осталось %d вратарей", len(df))
@@ -353,6 +373,7 @@ def clean_goalies(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # feature engineering вратарей
+
 
 def engineer_goalie_features(df: pd.DataFrame) -> pd.DataFrame:
     df["age"] = df["season_year"] - df["draftYear"] + 18
@@ -428,10 +449,7 @@ def prepare_skaters_B() -> dict[str, pd.DataFrame]:
     train = df[df["season_year"].isin(train_seasons_B)].copy()
     val = df[df["season_year"].isin(val_seasons_B)].copy()
     test = df[df["season_year"].isin(test_seasons_B)].copy()
-    log.info(
-        "Б скейтеры: train=%d, val=%d, test=%d",
-        len(train), len(val), len(test)
-    )
+    log.info("Б скейтеры: train=%d, val=%d, test=%d", len(train), len(val), len(test))
 
     train.to_csv(features_dir / "skaters_B_train.csv", index=False, encoding="utf-8-sig")
     val.to_csv(features_dir / "skaters_B_val.csv", index=False, encoding="utf-8-sig")
@@ -454,10 +472,7 @@ def prepare_goalies_B() -> dict[str, pd.DataFrame]:
     train = df[df["season_year"].isin(train_seasons_B)].copy()
     val = df[df["season_year"].isin(val_seasons_B)].copy()
     test = df[df["season_year"].isin(test_seasons_B)].copy()
-    log.info(
-        "Б вратари: train=%d, val=%d, test=%d",
-        len(train), len(val), len(test)
-    )
+    log.info("Б вратари: train=%d, val=%d, test=%d", len(train), len(val), len(test))
 
     train.to_csv(features_dir / "goalies_B_train.csv", index=False, encoding="utf-8-sig")
     val.to_csv(features_dir / "goalies_B_val.csv", index=False, encoding="utf-8-sig")
@@ -517,7 +532,10 @@ def _validate_splits():
         if overlap_tv or overlap_vt or overlap_tt:
             log.error(
                 "%s: ПЕРЕСЕЧЕНИЕ! train с val=%s, val с test=%s, train с test=%s",
-                label, overlap_tv, overlap_vt, overlap_tt
+                label,
+                overlap_tv,
+                overlap_vt,
+                overlap_tt,
             )
         else:
             log.info(
@@ -540,7 +558,11 @@ def _validate_splits():
             cap_max = np.expm1(df["log_cap_hit"].max()) / 1e6
             log.info(
                 "%s %s: %d строк, cap_hit=[%.2fM, %.2fM]",
-                label, split_name, len(df), cap_min, cap_max
+                label,
+                split_name,
+                len(df),
+                cap_min,
+                cap_max,
             )
 
         # постановка Б: проверяем что cap_hit_next > 0
@@ -548,10 +570,7 @@ def _validate_splits():
             for split_name, df in [("train", train), ("val", val), ("test", test)]:
                 bad = (df["cap_hit_next"] < 500_000).sum()
                 if bad > 0:
-                    log.warning(
-                        "%s %s: %d строк с cap_hit_next < 500K",
-                        label, split_name, bad
-                    )
+                    log.warning("%s %s: %d строк с cap_hit_next < 500K", label, split_name, bad)
 
     log.info("Валидация завершена")
 
@@ -559,17 +578,29 @@ def _validate_splits():
 # -----Препроцессинг одного игрока для API------
 
 SKATER_LAG_COLS = [
-    "goals", "assists", "points",
-    "timeOnIcePerGame", "points_per_60",
-    "goals_per_60", "assists_per_60",
-    "hits", "blockedShots", "plusMinus",
-    "ppPoints", "cap_hit",
+    "goals",
+    "assists",
+    "points",
+    "timeOnIcePerGame",
+    "points_per_60",
+    "goals_per_60",
+    "assists_per_60",
+    "hits",
+    "blockedShots",
+    "plusMinus",
+    "ppPoints",
+    "cap_hit",
 ]
 
 GOALIE_LAG_COLS = [
-    "savePct", "goalsAgainstAverage",
-    "wins", "shutouts", "gamesStarted",
-    "gsaa_proxy", "win_rate", "cap_hit",
+    "savePct",
+    "goalsAgainstAverage",
+    "wins",
+    "shutouts",
+    "gamesStarted",
+    "gsaa_proxy",
+    "win_rate",
+    "cap_hit",
 ]
 
 HOCKEY_COUNTRIES = ["CAN", "USA", "RUS", "SWE", "FIN", "CZE"]
@@ -585,8 +616,8 @@ def _add_country_dummies(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def engineer_one_skater(
-        raw: dict,
-        prev_season: dict | None = None,
+    raw: dict,
+    prev_season: dict | None = None,
 ) -> pd.DataFrame:
     """
     Препроцессинг одного скейтера для предсказания через API.
@@ -598,11 +629,32 @@ def engineer_one_skater(
     Возвращает pd.DataFrame с одной строкой, готовой к model.predict().
     """
     df = pd.DataFrame([raw])
-    df["pointsPerGame"] = (
-            df["points"] / df["gamesPlayed"].replace(0, np.nan)
-    ).fillna(0)
+    defaults = {
+        "gamesPlayed": 60,
+        "goals": 0,
+        "assists": 0,
+        "points": 0,
+        "plusMinus": 0,
+        "timeOnIcePerGame": 900,
+        "ppGoals": 0,
+        "ppPoints": 0,
+        "ppTimeOnIcePerGame": 0,
+        "hits": 0,
+        "blockedShots": 0,
+        "hitsPer60": 0,
+        "blockedShotsPer60": 0,
+        "takeawaysPer60": 0,
+        "heightInInches": 73,
+        "weightInPounds": 200,
+        "season_year": 2026,
+    }
+    for col, val in defaults.items():
+        if col not in df.columns:
+            df[col] = val
+    df["pointsPerGame"] = (df["points"] / df["gamesPlayed"].replace(0, np.nan)).fillna(0)
 
-    toi_h = df["timeOnIcePerGame"] * df["gamesPlayed"] / 3600
+    games = df["gamesPlayed"].replace(0, np.nan).fillna(60)
+    toi_h = (df["timeOnIcePerGame"].replace(0, np.nan) * games / 3600).fillna(0)
     toi_h = toi_h.replace(0, np.nan)
     df["goals_per_60"] = (df["goals"] / toi_h * 60).fillna(0)
     df["assists_per_60"] = (df["assists"] / toi_h * 60).fillna(0)
@@ -641,7 +693,7 @@ def engineer_one_skater(
     df = _add_country_dummies(df)
 
     for col in SKATER_LAG_COLS:
-        if prev_season and col in prev_season:
+        if prev_season and col in prev_season and prev_season[col] is not None:
             df[f"{col}_lag1"] = prev_season[col]
             current = raw.get(col, 0) or 0
             df[f"{col}_delta"] = current - prev_season[col]
@@ -656,26 +708,51 @@ def engineer_one_skater(
 
 
 def engineer_one_goalie(
-        raw: dict,
-        prev_season: dict | None = None,
+    raw: dict,
+    prev_season: dict | None = None,
 ) -> pd.DataFrame:
     """
     Препроцессинг одного вратаря для предсказания через API.
     """
     df = pd.DataFrame([raw])
-
-    df["starter_ratio"] = (
-            df.get("gamesStarted", 0) / df["gamesPlayed"].replace(0, np.nan)
-    ).fillna(0)
+    defaults = {
+        "gamesPlayed": 40,
+        "gamesStarted": 35,
+        "wins": 0,
+        "losses": 0,
+        "otLosses": 0,
+        "savePct": 0.910,
+        "goalsAgainst": 0,
+        "goalsAgainstAverage": 2.8,
+        "shotsAgainst": 1100,
+        "shutouts": 0,
+        "qualityStart": 0,
+        "qualityStartsPct": 0.0,
+        "completeGamePct": 0.0,
+        "goalsFor": 0,
+        "goalsForAverage": 0.0,
+        "shotsAgainstPer60": 0.0,
+        "incompleteGames": 0,
+        "heightInInches": 74,
+        "weightInPounds": 195,
+        "season_year": 2026,
+    }
+    for col, val in defaults.items():
+        if col not in df.columns:
+            df[col] = val
+    for col, val in defaults.items():
+        if col not in df.columns:
+            df[col] = val
+    df["starter_ratio"] = (df.get("gamesStarted", 0) / df["gamesPlayed"].replace(0, np.nan)).fillna(
+        0
+    )
 
     league_avg_svpct = 0.8933
-    df["gsaa_proxy"] = (
-                               df.get("savePct", league_avg_svpct) - league_avg_svpct
-                       ) * df.get("shotsAgainst", 0)
+    df["gsaa_proxy"] = (df.get("savePct", league_avg_svpct) - league_avg_svpct) * df.get(
+        "shotsAgainst", 0
+    )
 
-    df["win_rate"] = (
-            df.get("wins", 0) / df["gamesPlayed"].replace(0, np.nan)
-    ).fillna(0)
+    df["win_rate"] = (df.get("wins", 0) / df["gamesPlayed"].replace(0, np.nan)).fillna(0)
 
     if "draftYear" in df.columns and df["draftYear"].notna().all():
         df["age"] = df["season_year"] - df["draftYear"] + 18
@@ -699,7 +776,7 @@ def engineer_one_goalie(
     df = _add_country_dummies(df)
 
     for col in GOALIE_LAG_COLS:
-        if prev_season and col in prev_season:
+        if prev_season and col in prev_season and prev_season[col] is not None:
             df[f"{col}_lag1"] = prev_season[col]
             current = raw.get(col, 0) or 0
             df[f"{col}_delta"] = current - prev_season[col]

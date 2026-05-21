@@ -5,18 +5,20 @@ FastAPI приложение. Все эндпоинты NHL Salary Predictor.
 import io
 from typing import Literal
 
-import numpy as np
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from api.predictor import predictor
 from api.schemas import (
-    SkaterInput, GoalieInput,
-    PredictionOutput, PlayerSearchResult,
-    BatchPredictionRow, BatchPredictionOutput,
+    BatchPredictionOutput,
+    BatchPredictionRow,
+    GoalieInput,
+    PlayerSearchResult,
+    PredictionOutput,
+    SkaterInput,
 )
-from api.predictor import predictor, get_salary_tier
 
 app = FastAPI(
     title="NHL Salary Predictor",
@@ -30,6 +32,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.get("/health")
 def health():
@@ -59,8 +62,8 @@ def model_info():
 
 @app.get("/players/search", response_model=list[PlayerSearchResult])
 def search_players(
-        name: str = Query(..., min_length=2, description="Имя или фамилия игрока"),
-        type: Literal["skater", "goalie"] = Query("skater"),
+    name: str = Query(..., min_length=2, description="Имя или фамилия игрока"),
+    type: Literal["skater", "goalie"] = Query("skater"),
 ):
     results = predictor.search_players(name, type)
     if not results:
@@ -110,38 +113,55 @@ async def predict_batch(file: UploadFile = File(...)):
 
     for _, row in df.iterrows():
         raw = row.to_dict()
-        name = str(raw.get("skaterFullName") or raw.get("goalieFullName") or raw.get("name", "Unknown"))
+        name = str(
+            raw.get("skaterFullName") or raw.get("goalieFullName") or raw.get("name", "Unknown")
+        )
 
         try:
             if player_type == "skater":
-                inp = SkaterInput(**{k: v for k, v in raw.items()
-                                     if k in SkaterInput.model_fields and not pd.isna(v)})
+                inp = SkaterInput(
+                    **{
+                        k: v
+                        for k, v in raw.items()
+                        if k in SkaterInput.model_fields and not pd.isna(v)
+                    }
+                )
                 result = predictor.predict_skater(inp)
             else:
-                inp = GoalieInput(**{k: v for k, v in raw.items()
-                                     if k in GoalieInput.model_fields and not pd.isna(v)})
+                inp = GoalieInput(
+                    **{
+                        k: v
+                        for k, v in raw.items()
+                        if k in GoalieInput.model_fields and not pd.isna(v)
+                    }
+                )
                 result = predictor.predict_goalie(inp)
 
-            predictions.append(BatchPredictionRow(
-                name=name,
-                predicted_cap_hit=result.predicted_cap_hit,
-                predicted_cap_hit_m=result.predicted_cap_hit_m,
-                salary_tier=result.salary_tier,
-            ))
+            predictions.append(
+                BatchPredictionRow(
+                    name=name,
+                    predicted_cap_hit=result.predicted_cap_hit,
+                    predicted_cap_hit_m=result.predicted_cap_hit_m,
+                    salary_tier=result.salary_tier,
+                )
+            )
             tier_dist[result.salary_tier] = tier_dist.get(result.salary_tier, 0) + 1
 
         except Exception:
-            predictions.append(BatchPredictionRow(
-                name=name,
-                predicted_cap_hit=0.0,
-                predicted_cap_hit_m="Ошибка",
-                salary_tier="Unknown",
-            ))
+            predictions.append(
+                BatchPredictionRow(
+                    name=name,
+                    predicted_cap_hit=0.0,
+                    predicted_cap_hit_m="Ошибка",
+                    salary_tier="Unknown",
+                )
+            )
 
     return BatchPredictionOutput(
         count=len(predictions),
         predictions=predictions,
         tier_distribution=tier_dist,
     )
+
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

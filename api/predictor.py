@@ -5,35 +5,37 @@
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.append(str(ROOT))
-sys.path.append(str(ROOT / "src"))  # ← добавить эту строку
-
 import joblib
 import numpy as np
 import pandas as pd
 import shap
 
-sys.path.append(str(Path(__file__).parent.parent))
-
-from src.modeling import SelectThenPredict
-from src.preprocessing import engineer_one_skater, engineer_one_goalie
 from api.schemas import (
-    SkaterInput, GoalieInput, PredictionOutput,
-    ShapFeature, SimilarPlayer, PlayerSearchResult,
+    GoalieInput,
+    PlayerSearchResult,
+    PredictionOutput,
+    ShapFeature,
+    SimilarPlayer,
+    SkaterInput,
 )
+from src.preprocessing import engineer_one_goalie, engineer_one_skater
+
+ROOT = Path(__file__).parent.parent
+sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "src"))
+sys.path.append(str(Path(__file__).parent.parent))
 
 ROOT = Path(__file__).parent.parent
 MODELS_DIR = ROOT / "models"
 FEATURES_DIR = ROOT / "data" / "features"
 
 SALARY_TIERS = [
-    (1_000_000,  "Entry-level",  "<$1M"),
-    (3_000_000,  "Bottom-6",     "$1–3M"),
-    (5_000_000,  "Middle-6",     "$3–5M"),
-    (8_000_000,  "Top-6",        "$5–8M"),
-    (12_000_000, "Star",         "$8–12M"),
-    (float("inf"), "Franchise",  "$12M+"),
+    (1_000_000, "Entry-level", "<$1M"),
+    (3_000_000, "Bottom-6", "$1–3M"),
+    (5_000_000, "Middle-6", "$3–5M"),
+    (8_000_000, "Top-6", "$5–8M"),
+    (12_000_000, "Star", "$8–12M"),
+    (float("inf"), "Franchise", "$12M+"),
 ]
 
 SKATER_KEY_STATS = {
@@ -74,26 +76,51 @@ class NHLPredictor:
         sk = pd.read_csv(FEATURES_DIR / "skaters_test.csv")
         go = pd.read_csv(FEATURES_DIR / "goalies_test.csv")
 
-        self.skaters_lookup = sk[
-            ["playerId", "skaterFullName", "positionCode",
-             "teamAbbrevs", "season_year", "cap_hit",
-             "goals", "assists", "points", "plusMinus",
-             "timeOnIcePerGame", "gamesPlayed"]
-        ].dropna(subset=["cap_hit"]).copy()
+        self.skaters_lookup = (
+            sk[
+                [
+                    "playerId",
+                    "skaterFullName",
+                    "positionCode",
+                    "teamAbbrevs",
+                    "season_year",
+                    "cap_hit",
+                    "goals",
+                    "assists",
+                    "points",
+                    "plusMinus",
+                    "timeOnIcePerGame",
+                    "gamesPlayed",
+                ]
+            ]
+            .dropna(subset=["cap_hit"])
+            .copy()
+        )
 
-        self.goalies_lookup = go[
-            ["playerId", "goalieFullName", "teamAbbrevs",
-             "season_year", "cap_hit", "wins",
-             "savePct", "goalsAgainstAverage", "gamesStarted"]
-        ].dropna(subset=["cap_hit"]).copy()
+        self.goalies_lookup = (
+            go[
+                [
+                    "playerId",
+                    "goalieFullName",
+                    "teamAbbrevs",
+                    "season_year",
+                    "cap_hit",
+                    "wins",
+                    "savePct",
+                    "goalsAgainstAverage",
+                    "gamesStarted",
+                ]
+            ]
+            .dropna(subset=["cap_hit"])
+            .copy()
+        )
 
         # все числовые колонки для подстановки в форму при поиске
         self.skaters_full = sk.copy()
         self.goalies_full = go.copy()
 
     def _get_feature_cols(self, df: pd.DataFrame, exclude: list[str]) -> list[str]:
-        return [c for c in df.select_dtypes(include=[np.number]).columns
-                if c not in exclude]
+        return [c for c in df.select_dtypes(include=[np.number]).columns if c not in exclude]
 
     def _build_shap_top5(
         self,
@@ -121,15 +148,13 @@ class NHLPredictor:
     ) -> list[SimilarPlayer]:
         low, high = predicted * 0.8, predicted * 1.2
         candidates = self.skaters_lookup[
-            (self.skaters_lookup["cap_hit"] >= low) &
-            (self.skaters_lookup["cap_hit"] <= high)
+            (self.skaters_lookup["cap_hit"] >= low) & (self.skaters_lookup["cap_hit"] <= high)
         ].copy()
 
         if candidates.empty:
             low, high = predicted * 0.7, predicted * 1.3
             candidates = self.skaters_lookup[
-                (self.skaters_lookup["cap_hit"] >= low) &
-                (self.skaters_lookup["cap_hit"] <= high)
+                (self.skaters_lookup["cap_hit"] >= low) & (self.skaters_lookup["cap_hit"] <= high)
             ].copy()
 
         candidates["dist"] = (candidates["cap_hit"] - predicted).abs()
@@ -138,31 +163,29 @@ class NHLPredictor:
         stat_col, stat_label = SKATER_KEY_STATS.get(position, ("points", "Очки"))
         result = []
         for _, row in candidates.iterrows():
-            result.append(SimilarPlayer(
-                name=row["skaterFullName"],
-                position=row["positionCode"],
-                team=str(row["teamAbbrevs"]),
-                cap_hit=float(row["cap_hit"]),
-                cap_hit_m=f"${row['cap_hit']/1e6:.2f}M",
-                key_stat=stat_label,
-                key_stat_value=float(row.get(stat_col, 0)),
-            ))
+            result.append(
+                SimilarPlayer(
+                    name=row["skaterFullName"],
+                    position=row["positionCode"],
+                    team=str(row["teamAbbrevs"]),
+                    cap_hit=float(row["cap_hit"]),
+                    cap_hit_m=f"${row['cap_hit'] / 1e6:.2f}M",
+                    key_stat=stat_label,
+                    key_stat_value=float(row.get(stat_col, 0)),
+                )
+            )
         return result
 
-    def _find_similar_goalies(
-        self, predicted: float, n: int = 5
-    ) -> list[SimilarPlayer]:
+    def _find_similar_goalies(self, predicted: float, n: int = 5) -> list[SimilarPlayer]:
         low, high = predicted * 0.8, predicted * 1.2
         candidates = self.goalies_lookup[
-            (self.goalies_lookup["cap_hit"] >= low) &
-            (self.goalies_lookup["cap_hit"] <= high)
+            (self.goalies_lookup["cap_hit"] >= low) & (self.goalies_lookup["cap_hit"] <= high)
         ].copy()
 
         if candidates.empty:
             low, high = predicted * 0.7, predicted * 1.3
             candidates = self.goalies_lookup[
-                (self.goalies_lookup["cap_hit"] >= low) &
-                (self.goalies_lookup["cap_hit"] <= high)
+                (self.goalies_lookup["cap_hit"] >= low) & (self.goalies_lookup["cap_hit"] <= high)
             ].copy()
 
         candidates["dist"] = (candidates["cap_hit"] - predicted).abs()
@@ -170,15 +193,17 @@ class NHLPredictor:
 
         result = []
         for _, row in candidates.iterrows():
-            result.append(SimilarPlayer(
-                name=row["goalieFullName"],
-                position="G",
-                team=str(row["teamAbbrevs"]),
-                cap_hit=float(row["cap_hit"]),
-                cap_hit_m=f"${row['cap_hit']/1e6:.2f}M",
-                key_stat="SV%",
-                key_stat_value=float(row.get("savePct", 0)),
-            ))
+            result.append(
+                SimilarPlayer(
+                    name=row["goalieFullName"],
+                    position="G",
+                    team=str(row["teamAbbrevs"]),
+                    cap_hit=float(row["cap_hit"]),
+                    cap_hit_m=f"${row['cap_hit'] / 1e6:.2f}M",
+                    key_stat="SV%",
+                    key_stat_value=float(row.get("savePct", 0)),
+                )
+            )
         return result
 
     def predict_skater(self, inp: SkaterInput) -> PredictionOutput:
@@ -189,15 +214,31 @@ class NHLPredictor:
 
         # загружаем полный список фич из тренировочного датасета
         train_feature_cols = [
-            c for c in self.skaters_full.select_dtypes(include=[np.number]).columns
-            if c not in [
-                "playerId", "season", "seasonId", "season_year",
-                "cap_hit", "log_cap_hit", "evPoints", "ppTimeOnIce",
-                "ppTimeOnIcePctPerGame", "missedShotWideOfNet",
-                "ppIndividualSatFor", "timeOnIce", "completeGames",
-                "gamesPlayed", "saves", "regulationWins",
-                "cap_pct", "cap_pct_lag1", "salary_cap",
-                "cap_hit_lag1", "cap_hit_delta",
+            c
+            for c in self.skaters_full.select_dtypes(include=[np.number]).columns
+            if c
+            not in [
+                "playerId",
+                "season",
+                "seasonId",
+                "season_year",
+                "cap_hit",
+                "log_cap_hit",
+                "evPoints",
+                "ppTimeOnIce",
+                "ppTimeOnIcePctPerGame",
+                "missedShotWideOfNet",
+                "ppIndividualSatFor",
+                "timeOnIce",
+                "completeGames",
+                "gamesPlayed",
+                "saves",
+                "regulationWins",
+                "cap_pct",
+                "cap_pct_lag1",
+                "salary_cap",
+                "cap_hit_lag1",
+                "cap_hit_delta",
             ]
         ]
 
@@ -219,16 +260,14 @@ class NHLPredictor:
         predicted = float(np.expm1(pred_log))
 
         shap_vals = self.skater_explainer.shap_values(x_scaled)[0]
-        shap_top5 = self._build_shap_top5(
-            shap_vals, self.skater_selected_cols, x_scaled.values[0]
-        )
+        shap_top5 = self._build_shap_top5(shap_vals, self.skater_selected_cols, x_scaled.values[0])
 
         tier, tier_range = get_salary_tier(predicted)
         similar = self._find_similar_skaters(predicted, inp.positionCode)
 
         return PredictionOutput(
             predicted_cap_hit=predicted,
-            predicted_cap_hit_m=f"${predicted/1e6:.2f}M",
+            predicted_cap_hit_m=f"${predicted / 1e6:.2f}M",
             salary_tier=tier,
             tier_range=tier_range,
             shap_top5=shap_top5,
@@ -241,13 +280,25 @@ class NHLPredictor:
 
         df = engineer_one_goalie(raw, prev_season=prev)
 
-        feature_cols = [c for c in self.goalies_full.select_dtypes(
-            include=[np.number]).columns
-            if c not in [
-                "playerId", "season", "seasonId", "season_year",
-                "cap_hit", "log_cap_hit", "timeOnIce", "completeGames",
-                "gamesPlayed", "saves", "regulationWins",
-                "cap_hit_lag1", "cap_hit_delta", "country_group",
+        feature_cols = [
+            c
+            for c in self.goalies_full.select_dtypes(include=[np.number]).columns
+            if c
+            not in [
+                "playerId",
+                "season",
+                "seasonId",
+                "season_year",
+                "cap_hit",
+                "log_cap_hit",
+                "timeOnIce",
+                "completeGames",
+                "gamesPlayed",
+                "saves",
+                "regulationWins",
+                "cap_hit_lag1",
+                "cap_hit_delta",
+                "country_group",
             ]
         ]
 
@@ -265,16 +316,14 @@ class NHLPredictor:
         predicted = float(np.expm1(pred_log))
 
         shap_vals = self.goalie_explainer.shap_values(x_scaled)[0]
-        shap_top5 = self._build_shap_top5(
-            shap_vals, feature_cols, x_scaled.values[0]
-        )
+        shap_top5 = self._build_shap_top5(shap_vals, feature_cols, x_scaled.values[0])
 
         tier, tier_range = get_salary_tier(predicted)
         similar = self._find_similar_goalies(predicted)
 
         return PredictionOutput(
             predicted_cap_hit=predicted,
-            predicted_cap_hit_m=f"${predicted/1e6:.2f}M",
+            predicted_cap_hit_m=f"${predicted / 1e6:.2f}M",
             salary_tier=tier,
             tier_range=tier_range,
             shap_top5=shap_top5,
@@ -302,31 +351,37 @@ class NHLPredictor:
                 "gamesPlayed": int(row.get("gamesPlayed", 0)),
             }
             if player_type == "skater":
-                stats.update({
-                    "goals": int(row.get("goals", 0)),
-                    "assists": int(row.get("assists", 0)),
-                    "points": int(row.get("points", 0)),
-                    "plusMinus": int(row.get("plusMinus", 0)),
-                    "timeOnIcePerGame": float(row.get("timeOnIcePerGame", 0)),
-                })
+                stats.update(
+                    {
+                        "goals": int(row.get("goals", 0)),
+                        "assists": int(row.get("assists", 0)),
+                        "points": int(row.get("points", 0)),
+                        "plusMinus": int(row.get("plusMinus", 0)),
+                        "timeOnIcePerGame": float(row.get("timeOnIcePerGame", 0)),
+                    }
+                )
             else:
-                stats.update({
-                    "wins": int(row.get("wins", 0)),
-                    "savePct": float(row.get("savePct", 0)),
-                    "goalsAgainstAverage": float(row.get("goalsAgainstAverage", 0)),
-                    "gamesStarted": int(row.get("gamesStarted", 0)),
-                })
+                stats.update(
+                    {
+                        "wins": int(row.get("wins", 0)),
+                        "savePct": float(row.get("savePct", 0)),
+                        "goalsAgainstAverage": float(row.get("goalsAgainstAverage", 0)),
+                        "gamesStarted": int(row.get("gamesStarted", 0)),
+                    }
+                )
 
-            results.append(PlayerSearchResult(
-                player_id=int(row.get("playerId", 0)),
-                name=row[name_col],
-                position=str(row.get(pos_col, "G")) if pos_col else "G",
-                team=str(row.get("teamAbbrevs", "")),
-                season_year=int(row.get("season_year", 2026)),
-                cap_hit=float(row["cap_hit"]),
-                cap_hit_m=f"${row['cap_hit']/1e6:.2f}M",
-                stats=stats,
-            ))
+            results.append(
+                PlayerSearchResult(
+                    player_id=int(row.get("playerId", 0)),
+                    name=row[name_col],
+                    position=str(row.get(pos_col, "G")) if pos_col else "G",
+                    team=str(row.get("teamAbbrevs", "")),
+                    season_year=int(row.get("season_year", 2026)),
+                    cap_hit=float(row["cap_hit"]),
+                    cap_hit_m=f"${row['cap_hit'] / 1e6:.2f}M",
+                    stats=stats,
+                )
+            )
         return results
 
 

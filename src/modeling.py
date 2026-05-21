@@ -42,23 +42,36 @@ target_col = "log_cap_hit"
 
 # колонки которые никогда не идут в модель
 exclude_cols = [
-    "playerId", "skaterFullName", "goalieFullName", "lastName",
-    "season", "seasonId", "season_year", "teamAbbrevs",
-    "positionCode", "shootsCatches", "birthCity", "birthCountry",
-    "name_key", "cap_hit", "log_cap_hit",
-    "player_name_cw", "team_cw", "position_cw",
+    "playerId",
+    "skaterFullName",
+    "goalieFullName",
+    "lastName",
+    "season",
+    "seasonId",
+    "season_year",
+    "teamAbbrevs",
+    "positionCode",
+    "shootsCatches",
+    "birthCity",
+    "birthCountry",
+    "name_key",
+    "cap_hit",
+    "log_cap_hit",
+    "player_name_cw",
+    "team_cw",
+    "position_cw",
     # мультиколлинеарные дубли выявленные в EDA
-    "evPoints",           # r=0.96 с points
-    "ppTimeOnIce",        # r=0.99 с ppTimeOnIcePerGame
+    "evPoints",  # r=0.96 с points
+    "ppTimeOnIce",  # r=0.99 с ppTimeOnIcePerGame
     "ppTimeOnIcePctPerGame",  # r=0.99 с ppTimeOnIcePerGame
-    "missedShotWideOfNet",    # r=0.99 с missedShots
-    "ppIndividualSatFor",     # r=0.99 с ppShots
+    "missedShotWideOfNet",  # r=0.99 с missedShots
+    "ppIndividualSatFor",  # r=0.99 с ppShots
     # вратари — дубли объёма
-    "timeOnIce",          # r=1.00 с gamesStarted
-    "completeGames",      # r=0.99 с gamesStarted
-    "gamesPlayed",        # r=0.99 с gamesStarted
-    "saves",              # r=0.999 с shotsAgainst
-    "regulationWins",     # r=0.99 с wins
+    "timeOnIce",  # r=1.00 с gamesStarted
+    "completeGames",  # r=0.99 с gamesStarted
+    "gamesPlayed",  # r=0.99 с gamesStarted
+    "saves",  # r=0.999 с shotsAgainst
+    "regulationWins",  # r=0.99 с wins
     "birthCountry",
     "country_group",
     "cap_pct",
@@ -71,6 +84,7 @@ exclude_cols = [
 
 class SelectThenPredict:
     """Обёртка для SelectFromModel + Pipeline чтобы predict работал напрямую."""
+
     def __init__(self, selector, model, selected_cols):
         self.selector = selector
         self.model = model
@@ -85,6 +99,7 @@ class SelectThenPredict:
 
 
 # --- утилиты ---
+
 
 def setup_dirs():
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -104,19 +119,19 @@ def get_feature_cols(df: pd.DataFrame, prefix: str = "") -> list[str]:
     # для постановки Б убираем всё связанное с текущей зарплатой
     if "B" in prefix:
         always_exclude += [
-            "cap_hit_lag1",   # текущая зарплата — прямой сигнал
+            "cap_hit_lag1",  # текущая зарплата — прямой сигнал
             "cap_hit_delta",  # изменение зарплаты — тоже сигнал
-            "cap_hit_next",   # это таргет, не должен быть в признаках
+            "cap_hit_next",  # это таргет, не должен быть в признаках
         ]
     features = [c for c in numeric if c not in always_exclude]
     return features
 
 
 def evaluate(
-        model,
-        x: pd.DataFrame,
-        y: pd.Series,
-        label: str = "",
+    model,
+    x: pd.DataFrame,
+    y: pd.Series,
+    label: str = "",
 ) -> dict:
     """
     Считает метрики в исходном пространстве (USD) через expm1.
@@ -132,8 +147,7 @@ def evaluate(
     mape = np.mean(np.abs((actual - pred) / actual)) * 100
 
     if label:
-        log.info("%s — MAE: %.0f, RMSE: %.0f, R2: %.3f, MAPE: %.1f%%",
-                 label, mae, rmse, r2, mape)
+        log.info("%s — MAE: %.0f, RMSE: %.0f, R2: %.3f, MAPE: %.1f%%", label, mae, rmse, r2, mape)
 
     return {"label": label, "mae": mae, "rmse": rmse, "r2": r2, "mape": mape}
 
@@ -184,20 +198,25 @@ def season_cv_splits(df: pd.DataFrame) -> list[tuple]:
         splits.append((train_idx, val_idx))
         log.info(
             "Fold %d: train%s → val[%d]  (%d/%d строк)",
-            i, train_seasons, val_season, len(train_idx), len(val_idx)
+            i,
+            train_seasons,
+            val_season,
+            len(train_idx),
+            len(val_idx),
         )
     return splits
 
 
 # --- baseline ---
 
+
 def run_baseline(
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        results: list[dict],
-        prefix: str,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    results: list[dict],
+    prefix: str,
 ):
     """
     LinearRegression без скейлинга и без feature engineering —
@@ -214,13 +233,14 @@ def run_baseline(
 
 # --- основные модели ---
 
+
 def run_models(
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        results: list[dict],
-        prefix: str,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    results: list[dict],
+    prefix: str,
 ) -> dict:
     """
     Ridge, ElasticNet, RandomForest, XGBoost, LightGBM, CatBoost —
@@ -282,13 +302,13 @@ def run_models(
 
 
 def tune_model(
-        model_name: str,
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        prefix: str,
-        n_trials: int = 50,
+    model_name: str,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    prefix: str,
+    n_trials: int = 50,
 ) -> dict:
     def objective(trial):
         if model_name == "lightgbm":
@@ -303,9 +323,7 @@ def tune_model(
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
             }
-            model = LGBMRegressor(
-                **params, random_state=random_state, verbose=-1, n_jobs=-1
-            )
+            model = LGBMRegressor(**params, random_state=random_state, verbose=-1, n_jobs=-1)
 
         elif model_name == "xgboost":
             params = {
@@ -318,9 +336,7 @@ def tune_model(
                 "reg_alpha": trial.suggest_float("reg_alpha", 1e-8, 10.0, log=True),
                 "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 10.0, log=True),
             }
-            model = XGBRegressor(
-                **params, random_state=random_state, verbosity=0
-            )
+            model = XGBRegressor(**params, random_state=random_state, verbosity=0)
 
         elif model_name == "catboost":
             params = {
@@ -331,9 +347,7 @@ def tune_model(
                 "subsample": trial.suggest_float("subsample", 0.5, 1.0),
                 "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.5, 1.0),
             }
-            model = CatBoostRegressor(
-                **params, random_state=random_state, verbose=0
-            )
+            model = CatBoostRegressor(**params, random_state=random_state, verbose=0)
 
         elif model_name == "random_forest":
             params = {
@@ -342,18 +356,14 @@ def tune_model(
                 "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 20),
                 "max_features": trial.suggest_float("max_features", 0.3, 1.0),
             }
-            model = RandomForestRegressor(
-                **params, random_state=random_state, n_jobs=-1
-            )
+            model = RandomForestRegressor(**params, random_state=random_state, n_jobs=-1)
 
         elif model_name == "elasticnet":
             params = {
                 "alpha": trial.suggest_float("alpha", 1e-4, 10.0, log=True),
                 "l1_ratio": trial.suggest_float("l1_ratio", 0.0, 1.0),
             }
-            model = ElasticNet(
-                **params, random_state=random_state, max_iter=10000
-            )
+            model = ElasticNet(**params, random_state=random_state, max_iter=10000)
 
         else:
             raise ValueError(f"Неизвестная модель: {model_name}")
@@ -372,10 +382,7 @@ def tune_model(
 
     best_params = study.best_params
     best_mae = study.best_value
-    log.info(
-        "Optuna %s %s: лучший MAE=%.0f, params=%s",
-        prefix, model_name, best_mae, best_params
-    )
+    log.info("Optuna %s %s: лучший MAE=%.0f, params=%s", prefix, model_name, best_mae, best_params)
 
     params_path = models_dir / f"best_params_{prefix}_{model_name}.json"
     with open(params_path, "w") as f:
@@ -386,48 +393,45 @@ def tune_model(
 
 
 def run_tuned_models(
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        results: list[dict],
-        prefix: str,
-        n_trials: int = 50,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    results: list[dict],
+    prefix: str,
+    n_trials: int = 50,
 ) -> dict:
     tunable = ["lightgbm", "xgboost", "catboost", "random_forest", "elasticnet"]
     trained = {}
 
     for model_name in tunable:
         best_params = tune_model(
-            model_name, x_train, y_train, x_val, y_val,
-            prefix=prefix, n_trials=n_trials,
+            model_name,
+            x_train,
+            y_train,
+            x_val,
+            y_val,
+            prefix=prefix,
+            n_trials=n_trials,
         )
 
         if model_name == "lightgbm":
-            model = LGBMRegressor(
-                **best_params, random_state=random_state, verbose=-1, n_jobs=-1
-            )
+            model = LGBMRegressor(**best_params, random_state=random_state, verbose=-1, n_jobs=-1)
         elif model_name == "xgboost":
-            model = XGBRegressor(
-                **best_params, random_state=random_state, verbosity=0
-            )
+            model = XGBRegressor(**best_params, random_state=random_state, verbosity=0)
         elif model_name == "catboost":
-            model = CatBoostRegressor(
-                **best_params, random_state=random_state, verbose=0
-            )
+            model = CatBoostRegressor(**best_params, random_state=random_state, verbose=0)
         elif model_name == "random_forest":
-            model = RandomForestRegressor(
-                **best_params, random_state=random_state, n_jobs=-1
-            )
+            model = RandomForestRegressor(**best_params, random_state=random_state, n_jobs=-1)
         elif model_name == "elasticnet":
-            model = ElasticNet(
-                **best_params, random_state=random_state, max_iter=10000
-            )
+            model = ElasticNet(**best_params, random_state=random_state, max_iter=10000)
 
         pipeline = build_pipeline(model)
         pipeline.fit(x_train, y_train)
         row = evaluate(
-            pipeline, x_val, y_val,
+            pipeline,
+            x_val,
+            y_val,
             label=f"{prefix}_{model_name}_tuned",
         )
         log_experiment(results, row)
@@ -438,13 +442,13 @@ def run_tuned_models(
 
 
 def run_stacking(
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        results: list[dict],
-        prefix: str,
-        cv: int = 5,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    results: list[dict],
+    prefix: str,
+    cv: int = 5,
 ) -> Pipeline:
     def load_best_params(model_name: str) -> dict:
         path = models_dir / f"best_params_{prefix}_{model_name}.json"
@@ -461,34 +465,71 @@ def run_stacking(
     # ElasticNet не включаем в stacking — линейная модель слабее деревьев как base estimator
 
     estimators = [
-        ("lightgbm", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", LGBMRegressor(
-                **lgbm_params,
-                random_state=random_state, verbose=-1, n_jobs=-1,
-            )),
-        ])),
-        ("xgboost", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", XGBRegressor(
-                **xgb_params,
-                random_state=random_state, verbosity=0,
-            )),
-        ])),
-        ("catboost", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", CatBoostRegressor(
-                **cb_params,
-                random_state=random_state, verbose=0,
-            )),
-        ])),
-        ("random_forest", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", RandomForestRegressor(
-                **rf_params,
-                random_state=random_state, n_jobs=-1,
-            )),
-        ])),
+        (
+            "lightgbm",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        LGBMRegressor(
+                            **lgbm_params,
+                            random_state=random_state,
+                            verbose=-1,
+                            n_jobs=-1,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "xgboost",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        XGBRegressor(
+                            **xgb_params,
+                            random_state=random_state,
+                            verbosity=0,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "catboost",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        CatBoostRegressor(
+                            **cb_params,
+                            random_state=random_state,
+                            verbose=0,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "random_forest",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        RandomForestRegressor(
+                            **rf_params,
+                            random_state=random_state,
+                            n_jobs=-1,
+                        ),
+                    ),
+                ]
+            ),
+        ),
     ]
 
     stacking = StackingRegressor(
@@ -512,13 +553,14 @@ def run_stacking(
 
 # --- уменьшение размерности ---
 
+
 def run_dim_reduction(
-        x_train: pd.DataFrame,
-        y_train: pd.Series,
-        x_val: pd.DataFrame,
-        y_val: pd.Series,
-        results: list[dict],
-        prefix: str,
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_val: pd.DataFrame,
+    y_val: pd.Series,
+    results: list[dict],
+    prefix: str,
 ):
     """
     Два эксперимента с уменьшением размерности:
@@ -526,9 +568,7 @@ def run_dim_reduction(
     2. PCA до n компонент объясняющих 95% дисперсии + Ridge
     """
     log.info("Уменьшение размерности: SelectFromModel")
-    selector_base = LGBMRegressor(
-        n_estimators=200, random_state=random_state, verbose=-1
-    )
+    selector_base = LGBMRegressor(n_estimators=200, random_state=random_state, verbose=-1)
     selector = SelectFromModel(selector_base, threshold="median")
     selector.fit(x_train, y_train)
 
@@ -538,16 +578,19 @@ def run_dim_reduction(
     n_selected = len(selected_cols)
     log.info("SelectFromModel: отобрано %d из %d признаков", n_selected, x_train.shape[1])
 
-    model_sel = Pipeline([
-        ("scaler", StandardScaler()),
-        ("model", LGBMRegressor(
-            n_estimators=300, learning_rate=0.05,
-            random_state=random_state, verbose=-1
-        )),
-    ])
+    model_sel = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "model",
+                LGBMRegressor(
+                    n_estimators=300, learning_rate=0.05, random_state=random_state, verbose=-1
+                ),
+            ),
+        ]
+    )
     model_sel.fit(x_train_sel, y_train)
-    row = evaluate(model_sel, x_val_sel, y_val,
-                   label=f"{prefix}_lgbm_select_{n_selected}feat")
+    row = evaluate(model_sel, x_val_sel, y_val, label=f"{prefix}_lgbm_select_{n_selected}feat")
     log_experiment(results, row)
 
     # сохраняем через обёртку чтобы predict работал на полном наборе фичей
@@ -555,17 +598,18 @@ def run_dim_reduction(
     save_model(wrapper, f"{prefix}_lgbm_select_{n_selected}feat")
 
     log.info("Уменьшение размерности: PCA + Ridge")
-    pca_pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("pca", PCA(n_components=0.95, random_state=random_state)),
-        ("model", Ridge(alpha=1.0)),
-    ])
+    pca_pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("pca", PCA(n_components=0.95, random_state=random_state)),
+            ("model", Ridge(alpha=1.0)),
+        ]
+    )
     pca_pipeline.fit(x_train, y_train)
     n_components = pca_pipeline.named_steps["pca"].n_components_
     log.info("PCA: %d компонент объясняют 95%% дисперсии", n_components)
 
-    row = evaluate(pca_pipeline, x_val, y_val,
-                   label=f"{prefix}_pca_{n_components}comp_ridge")
+    row = evaluate(pca_pipeline, x_val, y_val, label=f"{prefix}_pca_{n_components}comp_ridge")
     log_experiment(results, row)
     save_model(pca_pipeline, f"{prefix}_pca_{n_components}comp_ridge")
 
@@ -573,6 +617,7 @@ def run_dim_reduction(
 
 
 # --- точки входа скейтеры ---
+
 
 def run_skaters(prefix: str = "skaters", n_trials: int = 50):
     setup_dirs()
@@ -599,13 +644,12 @@ def run_skaters(prefix: str = "skaters", n_trials: int = 50):
     log.info("Таблица экспериментов %s:", prefix)
     print_results_table(results)
 
-    pd.DataFrame(results).to_csv(
-        models_dir / f"{prefix}_experiments.csv", index=False
-    )
+    pd.DataFrame(results).to_csv(models_dir / f"{prefix}_experiments.csv", index=False)
     return results, x_test, y_test
 
 
 # --- точки входа вратари ---
+
 
 def run_goalies_cv(prefix: str):
     setup_dirs()
@@ -634,20 +678,31 @@ def run_goalies_cv(prefix: str):
             max_iter=10000,
         ),
         "random_forest": RandomForestRegressor(
-            n_estimators=200, min_samples_leaf=2,
-            random_state=random_state, n_jobs=-1,
+            n_estimators=200,
+            min_samples_leaf=2,
+            random_state=random_state,
+            n_jobs=-1,
         ),
         "xgboost": XGBRegressor(
-            n_estimators=300, learning_rate=0.05,
-            max_depth=4, random_state=random_state, verbosity=0,
+            n_estimators=300,
+            learning_rate=0.05,
+            max_depth=4,
+            random_state=random_state,
+            verbosity=0,
         ),
         "lightgbm": LGBMRegressor(
-            n_estimators=300, learning_rate=0.05,
-            random_state=random_state, verbose=-1, n_jobs=-1,
+            n_estimators=300,
+            learning_rate=0.05,
+            random_state=random_state,
+            verbose=-1,
+            n_jobs=-1,
         ),
         "catboost": CatBoostRegressor(
-            iterations=300, learning_rate=0.05,
-            depth=4, random_state=random_state, verbose=0,
+            iterations=300,
+            learning_rate=0.05,
+            depth=4,
+            random_state=random_state,
+            verbose=0,
         ),
     }
     results = []
@@ -673,16 +728,23 @@ def run_goalies_cv(prefix: str):
 
         log.info(
             "%s %s: MAE=%.0f±%.0f, MAPE=%.1f%%, R2=%.3f",
-            prefix, name, mae_mean, mae_std, mape_mean, r2_mean,
+            prefix,
+            name,
+            mae_mean,
+            mae_std,
+            mape_mean,
+            r2_mean,
         )
-        results.append({
-            "label": f"{prefix}_{name}_CV",
-            "mae": mae_mean,
-            "mae_std": mae_std,
-            "rmse": rmse_mean,
-            "mape": mape_mean,
-            "r2": r2_mean,
-        })
+        results.append(
+            {
+                "label": f"{prefix}_{name}_CV",
+                "mae": mae_mean,
+                "mae_std": mae_std,
+                "rmse": rmse_mean,
+                "mape": mape_mean,
+                "r2": r2_mean,
+            }
+        )
 
     # тюнинг на последнем фолде
     last_train_idx, last_val_idx = splits[-1]
@@ -698,31 +760,25 @@ def run_goalies_cv(prefix: str):
 
     for model_name in tunable:
         best_params = tune_model(
-            model_name, x_train_last, y_train_last,
-            x_val_last, y_val_last,
-            prefix=prefix, n_trials=n_trials,
+            model_name,
+            x_train_last,
+            y_train_last,
+            x_val_last,
+            y_val_last,
+            prefix=prefix,
+            n_trials=n_trials,
         )
 
         if model_name == "lightgbm":
-            model = LGBMRegressor(
-                **best_params, random_state=random_state, verbose=-1, n_jobs=-1
-            )
+            model = LGBMRegressor(**best_params, random_state=random_state, verbose=-1, n_jobs=-1)
         elif model_name == "xgboost":
-            model = XGBRegressor(
-                **best_params, random_state=random_state, verbosity=0
-            )
+            model = XGBRegressor(**best_params, random_state=random_state, verbosity=0)
         elif model_name == "catboost":
-            model = CatBoostRegressor(
-                **best_params, random_state=random_state, verbose=0
-            )
+            model = CatBoostRegressor(**best_params, random_state=random_state, verbose=0)
         elif model_name == "random_forest":
-            model = RandomForestRegressor(
-                **best_params, random_state=random_state, n_jobs=-1
-            )
+            model = RandomForestRegressor(**best_params, random_state=random_state, n_jobs=-1)
         elif model_name == "elasticnet":
-            model = ElasticNet(
-                **best_params, random_state=random_state, max_iter=10000
-            )
+            model = ElasticNet(**best_params, random_state=random_state, max_iter=10000)
 
         # оцениваем по всем фолдам
         fold_metrics = []
@@ -743,16 +799,23 @@ def run_goalies_cv(prefix: str):
 
         log.info(
             "%s %s tuned: MAE=%.0f±%.0f, MAPE=%.1f%%, R2=%.3f",
-            prefix, model_name, mae_mean, mae_std, mape_mean, r2_mean,
+            prefix,
+            model_name,
+            mae_mean,
+            mae_std,
+            mape_mean,
+            r2_mean,
         )
-        results.append({
-            "label": f"{prefix}_{model_name}_tuned_CV",
-            "mae": mae_mean,
-            "mae_std": mae_std,
-            "rmse": rmse_mean,
-            "mape": mape_mean,
-            "r2": r2_mean,
-        })
+        results.append(
+            {
+                "label": f"{prefix}_{model_name}_tuned_CV",
+                "mae": mae_mean,
+                "mae_std": mae_std,
+                "rmse": rmse_mean,
+                "mape": mape_mean,
+                "r2": r2_mean,
+            }
+        )
 
         pipeline_final = build_pipeline(model)
         pipeline_final.fit(x_train_last, y_train_last)
@@ -770,34 +833,70 @@ def run_goalies_cv(prefix: str):
     cv_stack = 3
 
     estimators = [
-        ("lightgbm", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", LGBMRegressor(
-                **load_best_params_goalie("lightgbm"),
-                random_state=random_state, verbose=-1,
-            )),
-        ])),
-        ("xgboost", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", XGBRegressor(
-                **load_best_params_goalie("xgboost"),
-                random_state=random_state, verbosity=0,
-            )),
-        ])),
-        ("catboost", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", CatBoostRegressor(
-                **load_best_params_goalie("catboost"),
-                random_state=random_state, verbose=0,
-            )),
-        ])),
-        ("random_forest", Pipeline([
-            ("scaler", StandardScaler()),
-            ("model", RandomForestRegressor(
-                **load_best_params_goalie("random_forest"),
-                random_state=random_state, n_jobs=-1,
-            )),
-        ])),
+        (
+            "lightgbm",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        LGBMRegressor(
+                            **load_best_params_goalie("lightgbm"),
+                            random_state=random_state,
+                            verbose=-1,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "xgboost",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        XGBRegressor(
+                            **load_best_params_goalie("xgboost"),
+                            random_state=random_state,
+                            verbosity=0,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "catboost",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        CatBoostRegressor(
+                            **load_best_params_goalie("catboost"),
+                            random_state=random_state,
+                            verbose=0,
+                        ),
+                    ),
+                ]
+            ),
+        ),
+        (
+            "random_forest",
+            Pipeline(
+                [
+                    ("scaler", StandardScaler()),
+                    (
+                        "model",
+                        RandomForestRegressor(
+                            **load_best_params_goalie("random_forest"),
+                            random_state=random_state,
+                            n_jobs=-1,
+                        ),
+                    ),
+                ]
+            ),
+        ),
     ]
 
     stacking = StackingRegressor(
@@ -824,27 +923,32 @@ def run_goalies_cv(prefix: str):
 
     log.info(
         "%s stacking: MAE=%.0f±%.0f, MAPE=%.1f%%, R2=%.3f",
-        prefix, mae_mean, mae_std, mape_mean, r2_mean,
+        prefix,
+        mae_mean,
+        mae_std,
+        mape_mean,
+        r2_mean,
     )
-    results.append({
-        "label": f"{prefix}_stacking_CV",
-        "mae": mae_mean,
-        "mae_std": mae_std,
-        "rmse": rmse_mean,
-        "mape": mape_mean,
-        "r2": r2_mean,
-    })
+    results.append(
+        {
+            "label": f"{prefix}_stacking_CV",
+            "mae": mae_mean,
+            "mae_std": mae_std,
+            "rmse": rmse_mean,
+            "mape": mape_mean,
+            "r2": r2_mean,
+        }
+    )
 
     save_model(stacking, f"{prefix}_stacking")
 
     print_results_table(results)
-    pd.DataFrame(results).to_csv(
-        models_dir / f"{prefix}_cv_results.csv", index=False
-    )
+    pd.DataFrame(results).to_csv(models_dir / f"{prefix}_cv_results.csv", index=False)
     return results
 
 
 # --- финальная оценка ---
+
 
 def run_final_evaluation(prefix: str):
     """
@@ -870,7 +974,9 @@ def run_final_evaluation(prefix: str):
         try:
             model = load_model(f"{prefix}_{model_file}")
             metrics = evaluate(
-                model, x_test, y_test,
+                model,
+                x_test,
+                y_test,
                 label=f"{label}_TEST",
             )
             metrics["val_mae"] = row["mae"]
@@ -929,18 +1035,14 @@ def run_error_analysis(prefix: str):
 
     bins = [0, 1e6, 3e6, 7e6, 20e6]
     labels_bucket = ["<1M", "1-3M", "3-7M", ">7M"]
-    test["salary_bucket"] = pd.cut(
-        test["actual_cap_hit"], bins=bins, labels=labels_bucket
-    )
+    test["salary_bucket"] = pd.cut(test["actual_cap_hit"], bins=bins, labels=labels_bucket)
     bucket_stats = test.groupby("salary_bucket", observed=True)["abs_error"].agg(
         ["mean", "median", "count"]
     )
     log.info("Ошибки по диапазонам зарплат:\n%s", bucket_stats.to_string())
 
     if "positionCode" in test.columns:
-        pos_stats = test.groupby("positionCode")["abs_error"].agg(
-            ["mean", "median", "count"]
-        )
+        pos_stats = test.groupby("positionCode")["abs_error"].agg(["mean", "median", "count"])
         log.info("Ошибки по позициям:\n%s", pos_stats.to_string())
 
     name_col = "skaterFullName" if "skaterFullName" in test.columns else "goalieFullName"
@@ -955,9 +1057,7 @@ def run_error_analysis(prefix: str):
     ]
     log.info("Топ-10 недооценённых:\n%s", undervalued.to_string(index=False))
 
-    test.to_csv(
-        models_dir / f"{prefix}_test_predictions.csv", index=False
-    )
+    test.to_csv(models_dir / f"{prefix}_test_predictions.csv", index=False)
     log.info("Предсказания сохранены: %s_test_predictions.csv", prefix)
 
     return test
@@ -965,13 +1065,13 @@ def run_error_analysis(prefix: str):
 
 def run():
     log.info("ПОСТАНОВКА А")
-    #run_skaters(prefix="skaters", n_trials=50)
+    # run_skaters(prefix="skaters", n_trials=50)
     run_goalies_cv(prefix="goalies_A")
     best_skaters_A, test_results_A = run_final_evaluation("skaters")
     run_error_analysis("skaters")
 
     log.info("ПОСТАНОВКА Б")
-    #run_skaters(prefix="skaters_B", n_trials=30)
+    # run_skaters(prefix="skaters_B", n_trials=30)
     run_goalies_cv(prefix="goalies_B")
     best_skaters_B, test_results_B = run_final_evaluation("skaters_B")
     run_error_analysis("skaters_B")
@@ -984,16 +1084,20 @@ def run():
 
     log.info(
         "Постановка А, лучшая модель: %s | test MAE=%.0f | MAPE=%.1f%%",
-        best_A["label"], best_A["mae"], best_A["mape"],
+        best_A["label"],
+        best_A["mae"],
+        best_A["mape"],
     )
     log.info(
         "Постановка Б, лучшая модель: %s | test MAE=%.0f | MAPE=%.1f%%",
-        best_B["label"], best_B["mae"], best_B["mape"],
+        best_B["label"],
+        best_B["mae"],
+        best_B["mape"],
     )
     winner = "А" if best_A["mae"] <= best_B["mae"] else "Б"
     log.info(
-        "Вывод: для деплоя выбираем постановку %s — "
-        "меньше test MAE и val/test разрыв стабильнее", winner,
+        "Вывод: для деплоя выбираем постановку %s — меньше test MAE и val/test разрыв стабильнее",
+        winner,
     )
 
 
