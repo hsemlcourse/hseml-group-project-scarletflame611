@@ -167,6 +167,12 @@ RMSE я не выбрала как основную, потому что она 
 
 Все графики (распределения признаков, корреляционные матрицы, scatter plots cap hit vs ключевые признаки) представлены в ноутбуке `notebooks/01_eda.ipynb`, а также дополнительно сохранены в папку `report/images`.
 
+**Ссылки на csv:**
+
+Скейтеры: https://drive.google.com/file/d/1dZZy84-B_Ffdbs6-w4IUapmqAzTNcox9/view?usp=sharing
+
+Вратари: https://drive.google.com/file/d/1K5MTEJZihyPhy6zyKX_y6JHN4mX3vCK6/view?usp=sharing
+
 ---
 
 ## 4. Baseline-модель
@@ -420,7 +426,7 @@ Swagger документация доступна по адресу `http://loca
 
 **Видео демонстрации**
 
-*[ссылка на видео]*
+https://drive.google.com/file/d/133ZuSyu3mOf5RMUKSlVgzd5hFc0S4rLd/view?usp=sharing
 
 ---
 
