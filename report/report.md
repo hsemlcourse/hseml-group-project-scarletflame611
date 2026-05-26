@@ -80,6 +80,12 @@ RMSE я не выбрала как основную, потому что она 
 
 Подробное описание всех колонок с типами и источниками представлено в файле `data/raw/Описание датасета.md`.
 
+**Ссылки на csv:**
+
+Скейтеры: https://drive.google.com/file/d/1dZZy84-B_Ffdbs6-w4IUapmqAzTNcox9/view?usp=sharing
+
+Вратари: https://drive.google.com/file/d/1K5MTEJZihyPhy6zyKX_y6JHN4mX3vCK6/view?usp=sharing
+
 ---
 
 ## 3. Обработка и подготовка данных
@@ -166,12 +172,6 @@ RMSE я не выбрала как основную, потому что она 
 Вместо этого я использовала кросс-валидацию по сезонам: каждый следующий фолд добавляет один сезон в обучающую выборку и оценивается на следующем сезоне. Это позволило использовать все доступные данные и при этом не нарушать временной порядок.
 
 Все графики (распределения признаков, корреляционные матрицы, scatter plots cap hit vs ключевые признаки) представлены в ноутбуке `notebooks/01_eda.ipynb`, а также дополнительно сохранены в папку `report/images`.
-
-**Ссылки на csv:**
-
-Скейтеры: https://drive.google.com/file/d/1dZZy84-B_Ffdbs6-w4IUapmqAzTNcox9/view?usp=sharing
-
-Вратари: https://drive.google.com/file/d/1K5MTEJZihyPhy6zyKX_y6JHN4mX3vCK6/view?usp=sharing
 
 ---
 
