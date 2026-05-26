@@ -15,7 +15,8 @@
 5. [Результаты](#результаты-cp2)
 6. [Статус CP1](#статус-cp1)
 7. [Статус CP2](#статус-cp2)
-8. [Отчёт](#отчёт)
+8. [Статус CP3](#статус-cp3)
+9. [Отчёт](#отчёт)
 
 
 ## Описание задачи
@@ -56,8 +57,16 @@
 │   ├── parser.py               # Парсер NHL API + Spotrac (Selenium)
 │   ├── preprocessing.py        # Очистка, feature engineering, сплиты
 │   └── modeling.py             # Обучение, оценка, сохранение моделей
+├── api
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI приложение
+│   ├── schemas.py              # Pydantic схемы
+│   └── predictor.py            # Загрузка моделей, SHAP, предсказания
+├── static
+│   └── index.html              # Веб-интерфейс (HTML/CSS/JS)
 ├── tests
-│   └── test_pipeline.py        # Тесты пайплайна
+│   ├── test_pipeline.py        # Тесты пайплайна
+│   └── test_api.py             # Smoke-тесты FastAPI
 ├── requirements.txt
 ├── README.md
 ├── Dockerfile
@@ -98,26 +107,15 @@ python src/modeling.py
 
 ## Docker
 
-Запуск всего проекта в контейнере:
-
 ```bash
-# собрать и запустить
 docker-compose up --build
-
-# открыть Jupyter в браузере
-# http://localhost:8888
-# токен: nhl
 ```
 
-Внутри контейнера доступны все команды:
+После запуска доступно:
+- `http://localhost:8000` — веб-интерфейс
+- `http://localhost:8000/docs` — Swagger документация API
+- `http://localhost:8888` — Jupyter (токен: nhl)
 
-```bash
-# препроцессинг
-docker-compose exec app python src/preprocessing.py
-
-# обучение
-docker-compose exec app python src/modeling.py
-```
 
 ## Makefile
 
@@ -130,6 +128,8 @@ make train       # запуск modeling.py
 make test        # запуск тестов
 make docker-up   # запуск docker-compose
 make docker-down # остановка контейнеров
+make api         # запуск FastAPI локально
+make static      # запуск статики локально
 ```
 
 ## pre-commit
@@ -245,7 +245,21 @@ pre-commit run --all-files
 - [x] 13 smoke-тестов (pytest): данные, сплиты, leakage, модель
 - [x] pre-commit хук (ruff автоматически перед каждым коммитом)
 
+## Статус CP3
+
+### Деплой
+- [x] FastAPI с эндпоинтами predict/skater, predict/goalie, predict/batch, players/search
+- [x] Веб-интерфейс на HTML/CSS/JS: ввод вручную, поиск игрока, пакетное предсказание
+- [x] SHAP объяснения для каждого предсказания
+- [x] Похожие игроки по рыночной стоимости
+- [x] Слайдеры "что если" (интерактивное изменение предсказания)
+- [x] Бейджи переоценён/недооценён для реальных игроков
+- [x] Docker: api + jupyter в одном docker-compose
+- [x] 14 smoke-тестов для API (pytest)
+
+### Отчёт
+- [x] Полный отчёт в Markdown по всем 8 секциям
 
 ## Отчёт
 
-Финальный отчёт (пока нет): [`report/report.md`](report/report.md)
+Финальный отчёт: [`report/report.md`](report/report.md)
