@@ -79,7 +79,26 @@ header {
 }
 .logo-title span { color: var(--ice); }
 .logo-sub { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-.api-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
+.api-status {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-dim);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 5px 10px;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  user-select: none;
+}
+.api-status:hover {
+  border-color: var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+}
+.api-status:hover::after {
+  content: ' ↗';
+  font-size: 11px;
+  opacity: 0.6;
+}
 .api-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--green); box-shadow: 0 0 8px var(--green);
@@ -220,6 +239,13 @@ header {
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field label {
   font-size: 12px; color: var(--text-dim); font-weight: 500;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.field-hint {
+  font-size: 10px; font-weight: 400;
+  color: var(--text-dim); opacity: 0.7;
+  letter-spacing: 0; text-transform: none;
+  line-height: 1.3;
 }
 .field input, .field select {
   background: var(--bg3);
@@ -547,7 +573,7 @@ header {
       <div class="logo-title">🏒 NHL <span>SALARY</span> PREDICTOR</div>
       <div class="logo-sub">ML-модель предсказания зарплат · Сезоны 2021–22 → 2025–26</div>
     </div>
-    <div class="api-status">
+    <div class="api-status" onclick="openSwagger()" title="Открыть Swagger API документацию">
       <div class="api-dot offline" id="api-dot"></div>
       <span id="api-label">Проверка API...</span>
     </div>
@@ -689,17 +715,23 @@ header {
           </div>
 
           <div class="section-label">Биография</div>
-          <div class="fields-row fields-4">
+          <div class="fields-row fields-3">
             <div class="field">
-              <label>Рост (дюймы)</label>
+              <label>Рост (дюймы)
+                <span class="field-hint">напр. 72 = 182 см, 74 = 188 см</span>
+              </label>
               <input type="number" id="f-height" value="73" min="60" max="84">
             </div>
             <div class="field">
-              <label>Вес (фунты)</label>
+              <label>Вес (фунты)
+                <span class="field-hint">напр. 180 = 82 кг, 220 = 100 кг</span>
+              </label>
               <input type="number" id="f-weight" value="200" min="150" max="280">
             </div>
             <div class="field">
-              <label>Страна</label>
+              <label>Страна рождения
+                <span class="field-hint">страна рождения по паспорту</span>
+              </label>
               <select id="f-country">
                 <option value="CAN">🇨🇦 Канада</option>
                 <option value="USA">🇺🇸 США</option>
@@ -710,9 +742,27 @@ header {
                 <option value="OTHER">Другая</option>
               </select>
             </div>
+          </div>
+
+          <div class="section-label">Драфт НХЛ</div>
+          <div class="fields-row fields-3">
             <div class="field">
-              <label>Год драфта</label>
+              <label>Год драфта
+                <span class="field-hint">в каком году был задрафтован</span>
+              </label>
               <input type="number" id="f-draft" value="2018" min="1990" max="2025">
+            </div>
+            <div class="field">
+              <label>Раунд
+                <span class="field-hint">1 = топ-пик · 7 = последний раунд</span>
+              </label>
+              <input type="number" id="f-draft-round" placeholder="1–7 (необязательно)" min="1" max="7">
+            </div>
+            <div class="field">
+              <label>Номер пика в раунде
+                <span class="field-hint">место внутри раунда, от 1 до 36</span>
+              </label>
+              <input type="number" id="f-draft-pick" placeholder="1–36 (необязательно)" min="1" max="36">
             </div>
           </div>
 
@@ -788,17 +838,23 @@ header {
           </div>
 
           <div class="section-label">Биография</div>
-          <div class="fields-row fields-4">
+          <div class="fields-row fields-3">
             <div class="field">
-              <label>Рост (дюймы)</label>
+              <label>Рост (дюймы)
+                <span class="field-hint">напр. 72 = 182 см, 74 = 188 см</span>
+              </label>
               <input type="number" id="g-height" value="74" min="60" max="84">
             </div>
             <div class="field">
-              <label>Вес (фунты)</label>
+              <label>Вес (фунты)
+                <span class="field-hint">напр. 180 = 82 кг, 220 = 100 кг</span>
+              </label>
               <input type="number" id="g-weight" value="195" min="150" max="280">
             </div>
             <div class="field">
-              <label>Страна</label>
+              <label>Страна рождения
+                <span class="field-hint">страна рождения по паспорту</span>
+              </label>
               <select id="g-country">
                 <option value="CAN">🇨🇦 Канада</option>
                 <option value="USA">🇺🇸 США</option>
@@ -809,9 +865,27 @@ header {
                 <option value="OTHER">Другая</option>
               </select>
             </div>
+          </div>
+
+          <div class="section-label">Драфт НХЛ</div>
+          <div class="fields-row fields-3">
             <div class="field">
-              <label>Год драфта</label>
+              <label>Год драфта
+                <span class="field-hint">в каком году был задрафтован</span>
+              </label>
               <input type="number" id="g-draft" value="2016" min="1990" max="2025">
+            </div>
+            <div class="field">
+              <label>Раунд
+                <span class="field-hint">1 = топ-пик · 7 = последний раунд</span>
+              </label>
+              <input type="number" id="g-draft-round" placeholder="1–7 (необязательно)" min="1" max="7">
+            </div>
+            <div class="field">
+              <label>Номер пика в раунде
+                <span class="field-hint">место внутри раунда, от 1 до 36</span>
+              </label>
+              <input type="number" id="g-draft-pick" placeholder="1–36 (необязательно)" min="1" max="36">
             </div>
           </div>
 
@@ -993,6 +1067,11 @@ const FEATURE_LABELS = {
   takeawaysPer60: 'Отборы шайбы / 60 мин',
 };
 
+// Open Swagger docs
+function openSwagger() {
+  window.open(`${API}/docs`, '_blank');
+}
+
 // API check
 async function checkApi() {
   try {
@@ -1089,14 +1168,16 @@ function buildSkaterPayload() {
     timeOnIcePerGame: +document.getElementById('f-toi').value * 60,
     ppGoals: +document.getElementById('f-ppgoals').value,
     ppPoints: +document.getElementById('f-pppoints').value,
-    ppAssists: +document.getElementById('f-pppoints').value - +document.getElementById('f-ppgoals').value,
+    ppAssists: Math.max(0, +document.getElementById('f-pppoints').value - +document.getElementById('f-ppgoals').value),
     ppTimeOnIcePerGame: +document.getElementById('f-pptoi').value * 60,
     hits: +document.getElementById('f-hits').value,
     blockedShots: +document.getElementById('f-blocks').value,
     heightInInches: +document.getElementById('f-height').value,
     weightInPounds: +document.getElementById('f-weight').value,
     birthCountry: document.getElementById('f-country').value,
-    draftYear: +document.getElementById('f-draft').value,
+    draftYear: +document.getElementById('f-draft').value || null,
+    draftRound: +document.getElementById('f-draft-round').value || null,
+    draftOverall: +document.getElementById('f-draft-pick').value || null,
     prev_season: prev,
   };
 }
@@ -1126,7 +1207,9 @@ function buildGoaliePayload() {
     heightInInches: +document.getElementById('g-height').value,
     weightInPounds: +document.getElementById('g-weight').value,
     birthCountry: document.getElementById('g-country').value,
-    draftYear: +document.getElementById('g-draft').value,
+    draftYear: +document.getElementById('g-draft').value || null,
+    draftRound: +document.getElementById('g-draft-round').value || null,
+    draftOverall: +document.getElementById('g-draft-pick').value || null,
     prev_season: prev,
   };
 }

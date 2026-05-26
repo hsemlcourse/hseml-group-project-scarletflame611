@@ -660,6 +660,13 @@ def engineer_one_skater(
     df["assists_per_60"] = (df["assists"] / toi_h * 60).fillna(0)
     df["points_per_60"] = (df["points"] / toi_h * 60).fillna(0)
 
+    # hitsPer60 / blockedShotsPer60 вычисляем из формы — форма их не передаёт напрямую,
+    # но передаёт hits/blockedShots + gamesPlayed + timeOnIcePerGame.
+    if "hitsPer60" not in df.columns or df["hitsPer60"].eq(0).all():
+        df["hitsPer60"] = (df.get("hits", 0) / toi_h * 60).fillna(0)
+    if "blockedShotsPer60" not in df.columns or df["blockedShotsPer60"].eq(0).all():
+        df["blockedShotsPer60"] = (df.get("blockedShots", 0) / toi_h * 60).fillna(0)
+
     if "draftYear" in df.columns and df["draftYear"].notna().all():
         df["age"] = df["season_year"] - df["draftYear"] + 18
         df["is_undrafted"] = 0
